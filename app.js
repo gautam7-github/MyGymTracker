@@ -134,9 +134,40 @@ const POSE_CONNECTIONS = [
 const FEEDBACK_COOLDOWN_MS = 3000;
 const BANNER_COOLDOWN_MS = 6000;
 const MAX_FEEDBACK_ITEMS = 3;
+const MIN_VISIBILITY = 0.6;
 const isMobileDevice =
 	/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
 	window.innerWidth < 768;
+const PROFILE_LANDMARK_SETS = {
+	squat: [
+		[23, 25, 27],
+		[24, 26, 28],
+	],
+	deadlift: [
+		[23, 25, 27],
+		[24, 26, 28],
+	],
+	lunge: [
+		[23, 25, 27],
+		[24, 26, 28],
+	],
+	bicep_curl: [
+		[11, 13, 15],
+		[12, 14, 16],
+	],
+	shoulder_press: [
+		[11, 13, 15],
+		[12, 14, 16],
+	],
+	pushup: [
+		[11, 13, 15],
+		[12, 14, 16],
+	],
+	pullup: [
+		[11, 13, 15],
+		[12, 14, 16],
+	],
+};
 
 // Application state (in-memory only, no localStorage)
 let state = {
@@ -171,6 +202,7 @@ let state = {
 	debugMode: false,
 	errorBanners: [],
 	useBackCamera: isMobileDevice,
+	activeLandmarkSet: null,
 };
 
 // DOM Elements
@@ -210,6 +242,9 @@ elements.pauseBtn.textContent = "Pause";
 if (elements.rearCameraToggle) {
 	elements.rearCameraToggle.checked = state.useBackCamera;
 }
+if (elements.rearCameraToggle) {
+	elements.rearCameraToggle.checked = state.useBackCamera;
+}
 
 // Calculate angle between three points using official formula
 function calculateAngle(pointA, pointB, pointC) {
@@ -234,7 +269,7 @@ function smoothAngle(angle) {
 }
 
 // Check landmark visibility
-function checkVisibility(landmark, minVisibility = 0.5) {
+function checkVisibility(landmark, minVisibility = MIN_VISIBILITY) {
 	return (
 		landmark &&
 		landmark.visibility !== undefined &&
@@ -297,6 +332,127 @@ function renderFeedbackPlaceholder() {
 		'<p class="placeholder-text">Start exercising to see feedback.</p>';
 }
 
+function getVisibleLandmark(landmarks, index) {
+	if (!landmarks || index == null) return null;
+	const point = landmarks[index];
+	if (
+		!point ||
+		point.visibility == null ||
+		point.visibility < MIN_VISIBILITY ||
+		Number.isNaN(point.x) ||
+		Number.isNaN(point.y)
+	) {
+		return null;
+	}
+	return point;
+}
+
+function calculateAngle3D(pointA = {}, pointB = {}, pointC = {}) {
+	const a = {
+		x: pointA.x ?? 0,
+		y: pointA.y ?? 0,
+		z: pointA.z ?? 0,
+	};
+	const b = {
+		x: pointB.x ?? 0,
+		y: pointB.y ?? 0,
+		z: pointB.z ?? 0,
+	};
+	const c = {
+		x: pointC.x ?? 0,
+		y: pointC.y ?? 0,
+		z: pointC.z ?? 0,
+	};
+	const ab = {
+		x: a.x - b.x,
+		y: a.y - b.y,
+		z: a.z - b.z,
+	};
+	const cb = {
+		x: c.x - b.x,
+		y: c.y - b.y,
+		z: c.z - b.z,
+	};
+	const dot = ab.x * cb.x + ab.y * cb.y + ab.z * cb.z;
+	const magAB = Math.sqrt(ab.x ** 2 + ab.y ** 2 + ab.z ** 2);
+	const magCB = Math.sqrt(cb.x ** 2 + cb.y ** 2 + cb.z ** 2);
+	if (magAB === 0 || magCB === 0) return null;
+	const cosine = Math.min(1, Math.max(-1, dot / (magAB * magCB)));
+	return (Math.acos(cosine) * 180) / Math.PI;
+}
+
+function getJointAngleFromIndices(landmarks, worldLandmarks, indices) {
+	const [p1Idx, p2Idx, p3Idx] = indices;
+	const p1 = getVisibleLandmark(landmarks, p1Idx);
+	const p2 = getVisibleLandmark(landmarks, p2Idx);
+	const p3 = getVisibleLandmark(landmarks, p3Idx);
+	if (!p1 || !p2 || !p3) {
+		return null;
+	}
+	const worldAvailable =
+		worldLandmarks &&
+		worldLandmarks[p1Idx] &&
+		worldLandmarks[p2Idx] &&
+		worldLandmarks[p3Idx];
+	const angle = calculateAngle3D(
+		worldAvailable ? worldLandmarks[p1Idx] : p1,
+		worldAvailable ? worldLandmarks[p2Idx] : p2,
+		worldAvailable ? worldLandmarks[p3Idx] : p3
+	);
+	if (angle == null) {
+		return null;
+	}
+	const score =
+		(p1.visibility + p2.visibility + p3.visibility) / 3;
+	return { angle, indices, score };
+}
+
+function computeExerciseAngle(exerciseKey, landmarks, worldLandmarks) {
+	const sets =
+		PROFILE_LANDMARK_SETS[exerciseKey] ||
+		[EXERCISES[exerciseKey].landmarks];
+	const candidates = [];
+	for (const indices of sets) {
+		const result = getJointAngleFromIndices(
+			landmarks,
+			worldLandmarks,
+			indices
+		);
+		if (result) {
+			candidates.push(result);
+		}
+	}
+	if (!candidates.length) {
+		return null;
+	}
+	const averageAngle =
+		candidates.reduce((sum, entry) => sum + entry.angle, 0) /
+		candidates.length;
+	const bestCandidate = candidates.reduce((best, entry) =>
+		entry.score > best.score ? entry : best
+	);
+	return { angle: averageAngle, indices: bestCandidate.indices };
+}
+
+function pickVisibleSet(landmarks, sets) {
+	const candidates = [];
+	for (const indices of sets) {
+		const points = indices.map((idx) => getVisibleLandmark(landmarks, idx));
+		if (points.every(Boolean)) {
+			const score =
+				points.reduce((sum, point) => sum + point.visibility, 0) /
+				points.length;
+			candidates.push({ indices, points, score });
+		}
+	}
+	if (!candidates.length) {
+		return null;
+	}
+	return candidates.reduce((best, entry) =>
+		entry.score > best.score ? entry : best
+	);
+}
+
 // Show progress during model loading
 function showProgress(percent, message) {
 	elements.progressBar.style.display = "flex";
@@ -339,7 +495,7 @@ async function initializePoseLandmarker() {
 		setTimeout(hideProgress, 500);
 
 		console.log("✓ MediaPipe Pose Landmarker initialized with VIDEO mode");
-	updateStatus("ready", "Camera idle");
+		updateStatus("ready", "Camera idle");
 		return true;
 	} catch (error) {
 		console.error("Error initializing PoseLandmarker:", error);
@@ -586,7 +742,7 @@ function processPose() {
 				drawPoseLandmarks(landmarks);
 
 				// Calculate angles and count reps
-				analyzeExercise(landmarks);
+				analyzeExercise(landmarks, state.worldLandmarks);
 
 				// Update FPS counter
 				updateFPS();
@@ -689,8 +845,8 @@ function drawPoseLandmarks(landmarks) {
 
 		if (!startLandmark || !endLandmark) continue;
 
-		const startVisible = checkVisibility(startLandmark, 0.5);
-		const endVisible = checkVisibility(endLandmark, 0.5);
+		const startVisible = checkVisibility(startLandmark);
+		const endVisible = checkVisibility(endLandmark);
 
 		if (startVisible && endVisible) {
 			const avgVisibility =
@@ -776,38 +932,45 @@ function drawPoseLandmarks(landmarks) {
 }
 
 // Analyze exercise form and count reps with visibility checks
-function analyzeExercise(landmarks) {
-	const exercise = EXERCISES[state.currentExercise];
-	const [idx1, idx2, idx3] = exercise.landmarks;
+function analyzeExercise(landmarks, worldLandmarks) {
+	const exerciseKey = state.currentExercise;
+	const exercise = EXERCISES[exerciseKey];
+	const angleResult = computeExerciseAngle(
+		exerciseKey,
+		landmarks,
+		worldLandmarks
+	);
 
-	const point1 = landmarks[idx1];
-	const point2 = landmarks[idx2];
-	const point3 = landmarks[idx3];
+	const resetIndicators = () => {
+		elements.primaryAngle.textContent = "-";
+		elements.smoothedAngle.textContent = "-";
+		elements.confidenceValue.textContent = "--";
+		elements.confidenceValue.className = "confidence-value";
+		elements.stage.textContent = "Waiting";
+	};
 
-	// Check visibility of key landmarks
-	const visible1 = checkVisibility(point1, 0.5);
-	const visible2 = checkVisibility(point2, 0.5);
-	const visible3 = checkVisibility(point3, 0.5);
-
-	if (!visible1 || !visible2 || !visible3) {
-		const missing = [];
-		if (!visible1) missing.push(getLandmarkName(idx1));
-		if (!visible2) missing.push(getLandmarkName(idx2));
-		if (!visible3) missing.push(getLandmarkName(idx3));
-
-		updateFeedback(
-			`${missing.join(", ")} not fully visible. Adjust position.`,
-			"warning"
-		);
+	if (!angleResult) {
 		updateStatus("ready", "Some landmarks missing");
+		state.activeLandmarkSet = null;
+		resetIndicators();
 		return;
 	}
 
+	const { angle, indices } = angleResult;
+	const points = indices.map((idx) => getVisibleLandmark(landmarks, idx));
+	if (points.some((pt) => !pt)) {
+		updateStatus("ready", "Some landmarks missing");
+		state.activeLandmarkSet = null;
+		resetIndicators();
+		return;
+	}
+	state.activeLandmarkSet = indices;
+
 	updateStatus("active", "Tracking form");
 
-	// Calculate confidence score
 	const avgConfidence =
-		(point1.visibility + point2.visibility + point3.visibility) / 3;
+		points.reduce((sum, point) => sum + (point.visibility || 0), 0) /
+		points.length;
 	const confidencePercent = Math.round(avgConfidence * 100);
 	elements.confidenceValue.textContent = confidencePercent + "%";
 	elements.confidenceValue.className = "confidence-value";
@@ -819,25 +982,20 @@ function analyzeExercise(landmarks) {
 		elements.confidenceValue.classList.add("low");
 	}
 
-	// Calculate angle using normalized coordinates
-	const angle = calculateAngle(point1, point2, point3);
 	state.currentAngle = angle;
-
-	// Apply smoothing filter (moving average)
 	state.smoothedAngle = smoothAngle(angle);
 
-	// Update angle displays
 	elements.primaryAngle.textContent = `${Math.round(angle)}°`;
-	elements.smoothedAngle.textContent = `${Math.round(state.smoothedAngle)}°`;
+	elements.smoothedAngle.textContent = `${Math.round(
+		state.smoothedAngle
+	)}°`;
 
-	// Count reps based on exercise type
 	if (exercise.trackTime) {
 		trackPlankHold(landmarks, exercise);
 	} else {
 		countReps(state.smoothedAngle, exercise, landmarks);
 	}
 
-	// Provide form feedback
 	provideFormFeedback(state.smoothedAngle, exercise, landmarks);
 }
 
@@ -858,6 +1016,10 @@ function getLandmarkName(idx) {
 		28: "Right Ankle",
 	};
 	return names[idx] || `Landmark ${idx}`;
+}
+
+function getPoint(landmarks, index) {
+	return getVisibleLandmark(landmarks, index);
 }
 
 // Count repetitions with hysteresis and frame validation
@@ -929,15 +1091,11 @@ function countReps(angle, exercise, landmarks) {
 // Track plank hold time
 function trackPlankHold(landmarks, exercise) {
 	const [idx1, idx2, idx3] = exercise.landmarks;
-	const shoulder = landmarks[idx1];
-	const hip = landmarks[idx2];
-	const ankle = landmarks[idx3];
+	const shoulder = getVisibleLandmark(landmarks, idx1);
+	const hip = getVisibleLandmark(landmarks, idx2);
+	const ankle = getVisibleLandmark(landmarks, idx3);
 
-	if (
-		!checkVisibility(shoulder) ||
-		!checkVisibility(hip) ||
-		!checkVisibility(ankle)
-	) {
+	if (!shoulder || !hip || !ankle) {
 		updateFeedback("Cannot track plank - adjust position", "warning");
 		return;
 	}
@@ -972,78 +1130,114 @@ function trackPlankHold(landmarks, exercise) {
 // Provide form feedback
 function provideFormFeedback(angle, exercise, landmarks) {
 	const messages = [];
+	const exerciseKey = state.currentExercise;
+	const profileSets =
+		PROFILE_LANDMARK_SETS[exerciseKey] || [exercise.landmarks];
 
-	// Exercise-specific feedback
-	if (state.currentExercise === "bicep_curl") {
-		const shoulder = landmarks[11];
-		const elbow = landmarks[13];
-
-		// Check if elbow is moving too much (should stay relatively stable)
+	if (exerciseKey === "bicep_curl") {
+		const set = pickVisibleSet(landmarks, profileSets);
+		if (!set) return;
+		const [shoulder, elbow, wrist] = set.points;
 		const elbowMovement = Math.abs(elbow.x - shoulder.x);
 		if (elbowMovement > 0.15) {
 			messages.push({
-				text: "Keep your elbow stable at your side",
+				text: "Keep your elbow anchored near your ribs.",
 				type: "warning",
 			});
 		}
-
-		if (angle < 30) {
+		const elbowWristDistance = Math.abs(elbow.x - wrist.x);
+		if (elbowWristDistance < 0.05 && angle < 30) {
 			messages.push({
-				text: "Full contraction - squeeze!",
+				text: "Strong contraction—squeeze briefly at the top.",
 				type: "good",
 			});
 		}
-	} else if (state.currentExercise === "squat") {
-		const hip = landmarks[23];
-		const knee = landmarks[25];
-		const ankle = landmarks[27];
-
-		// Check if going deep enough
+	} else if (exerciseKey === "squat") {
+		const set =
+			pickVisibleSet(landmarks, profileSets) ||
+			pickVisibleSet(landmarks, [
+				[23, 25, 27],
+				[24, 26, 28],
+			]);
+		if (!set) return;
+		const [hip, knee, ankle] = set.points;
 		if (angle < 90 && angle > 70) {
 			messages.push({ text: "Depth looks solid.", type: "good" });
 		} else if (angle > 100 && state.currentStage === "down") {
 			messages.push({
-				text: "Go deeper for full range",
+				text: "Drop slightly lower for full range.",
 				type: "warning",
 			});
 		}
-
-		// Check knee tracking
 		const kneeAnkleDistance = Math.abs(knee.x - ankle.x);
 		if (kneeAnkleDistance > 0.1) {
-			messages.push({ text: "Keep knees over toes", type: "warning" });
+			messages.push({
+				text: "Keep the knee tracking over the ankle.",
+				type: "warning",
+			});
 		}
-	} else if (state.currentExercise === "pushup") {
-		// Check body alignment
-		const shoulder = landmarks[11];
-		const hip = landmarks[23];
-		const ankle = landmarks[27];
-
-		const bodyAngle = calculateAngle(shoulder, hip, ankle);
-		if (bodyAngle < 160) {
-			messages.push({ text: "Keep your body straight", type: "error" });
-		} else {
-				messages.push({ text: "Body stays aligned.", type: "good" });
+	} else if (exerciseKey === "lunge") {
+		const set =
+			pickVisibleSet(landmarks, profileSets) ||
+			pickVisibleSet(landmarks, [
+				[23, 25, 27],
+				[24, 26, 28],
+			]);
+		if (!set) return;
+		const [hip, knee, ankle] = set.points;
+		if (angle < 100 && angle > 70) {
+			messages.push({ text: "Hold the bottom briefly for balance.", type: "good" });
 		}
-
-		if (angle < 70) {
-			messages.push({ text: "Great depth!", type: "good" });
+		const kneeAnkleDistance = Math.abs(knee.x - ankle.x);
+		if (kneeAnkleDistance > 0.12) {
+			messages.push({
+				text: "Keep the front knee stacked over the ankle.",
+				type: "warning",
+			});
 		}
-	} else if (state.currentExercise === "shoulder_press") {
+	} else if (exerciseKey === "pushup") {
+		const armSet =
+			pickVisibleSet(landmarks, profileSets) ||
+			pickVisibleSet(landmarks, [
+				[11, 13, 15],
+				[12, 14, 16],
+			]);
+		if (armSet && angle < 70) {
+			messages.push({ text: "Great push-up depth.", type: "good" });
+		}
+		const alignmentSet = pickVisibleSet(landmarks, [
+			[11, 23, 27],
+			[12, 24, 28],
+		]);
+		if (alignmentSet) {
+			const [shoulder, hip, ankle] = alignmentSet.points;
+			const bodyAngle = calculateAngle(shoulder, hip, ankle);
+			if (bodyAngle < 160) {
+				messages.push({
+					text: "Lift hips slightly to keep a straight line.",
+					type: "warning",
+				});
+			} else {
+				messages.push({ text: "Body alignment looks good.", type: "good" });
+			}
+		}
+	} else if (exerciseKey === "shoulder_press") {
 		if (angle > 165) {
-			messages.push({ text: "Full extension achieved!", type: "good" });
+			messages.push({ text: "Strong lockout overhead.", type: "good" });
 		}
-	} else if (state.currentExercise === "pullup") {
+	} else if (exerciseKey === "pullup") {
 		if (angle < 50) {
-			messages.push({ text: "Chin over bar! Perfect!", type: "good" });
+			messages.push({ text: "Chin over bar—nice!", type: "good" });
 		}
-	} else if (state.currentExercise === "deadlift") {
+	} else if (exerciseKey === "deadlift") {
 		if (angle > 165) {
-			messages.push({ text: "Locked out! Good lift!", type: "good" });
+			messages.push({
+				text: "Finish tall with hips fully extended.",
+				type: "good",
+			});
 		}
 	}
 
-	// Update feedback display
 	if (messages.length > 0) {
 		displayFeedbackMessages(messages, { replace: true });
 	}
@@ -1214,6 +1408,7 @@ function resetStats() {
 	state.feedbackHistory = {};
 	state.bannerHistory = {};
 	state.startTime = Date.now();
+	state.activeLandmarkSet = null;
 
 	elements.repCount.textContent = "0";
 	elements.stage.textContent = "Waiting";

@@ -239,14 +239,6 @@ main {
   object-fit: cover;
 }
 
-#webcam {
-  transform: scaleX(-1);
-}
-
-#canvas {
-  transform: scaleX(-1);
-}
-
 .status-message {
   text-align: center;
   color: var(--color-text-secondary);
