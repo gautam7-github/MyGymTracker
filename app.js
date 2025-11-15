@@ -134,6 +134,9 @@ const POSE_CONNECTIONS = [
 const FEEDBACK_COOLDOWN_MS = 3000;
 const BANNER_COOLDOWN_MS = 6000;
 const MAX_FEEDBACK_ITEMS = 3;
+const isMobileDevice =
+	/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+	window.innerWidth < 768;
 
 // Application state (in-memory only, no localStorage)
 let state = {
@@ -167,7 +170,7 @@ let state = {
 	lastTimestamp: -1,
 	debugMode: false,
 	errorBanners: [],
-	useBackCamera: false,
+	useBackCamera: isMobileDevice,
 };
 
 // DOM Elements
@@ -205,7 +208,7 @@ elements.stopBtn.disabled = true;
 elements.pauseBtn.disabled = true;
 elements.pauseBtn.textContent = "Pause";
 if (elements.rearCameraToggle) {
-	elements.rearCameraToggle.checked = false;
+	elements.rearCameraToggle.checked = state.useBackCamera;
 }
 
 // Calculate angle between three points using official formula

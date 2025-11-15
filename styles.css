@@ -31,6 +31,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  padding-bottom: calc(var(--action-bar-height) + env(safe-area-inset-bottom, 0));
 }
 
 .app-container {
@@ -57,6 +58,7 @@ header {
   align-items: center;
   gap: var(--space-12);
   flex-wrap: wrap;
+  flex: 1;
 }
 
 h1 {
@@ -126,10 +128,23 @@ select:focus-visible,
   height: 18px;
 }
 
-.quick-controls {
+.action-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: var(--space-12);
+  padding-bottom: calc(var(--space-12) + env(safe-area-inset-bottom, 0));
+  background: var(--color-white);
+  border-top: 1px solid var(--color-border);
   display: flex;
-  flex-wrap: wrap;
   gap: var(--space-8);
+  z-index: 100;
+}
+
+.action-bar button {
+  flex: 1 0 0;
+  min-height: 44px;
 }
 
 main {
@@ -138,10 +153,11 @@ main {
   flex-direction: column;
   gap: var(--space-16);
   padding: var(--space-16);
+  padding-bottom: calc(var(--space-16) + var(--action-bar-height));
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
-  overflow: hidden;
+  overflow-y: auto;
   min-height: 0;
 }
 
@@ -424,14 +440,43 @@ main {
 }
 
 @media (min-width: 900px) {
+  body {
+    padding-bottom: 0;
+  }
+
+  header {
+    height: auto;
+    padding: var(--space-16) var(--space-24);
+  }
+
+  .header-row {
+    flex-wrap: nowrap;
+  }
+
+  .action-bar {
+    position: static;
+    border: none;
+    padding: 0;
+    background: transparent;
+    width: auto;
+    max-width: 420px;
+    margin-left: auto;
+  }
+
+  .action-bar button {
+    min-width: 90px;
+  }
+
   main {
-    flex-direction: row;
     display: grid;
     grid-template-columns: minmax(0, 0.65fr) minmax(320px, 0.35fr);
-    height: calc(100vh - 56px);
+    gap: var(--space-16);
+    flex-direction: row;
+    height: calc(100vh - 96px);
+    padding-bottom: var(--space-16);
   }
 
   .video-container {
-    min-height: calc((100vh - 56px) * 0.65);
+    min-height: calc((100vh - 96px) * 0.65);
   }
 }
