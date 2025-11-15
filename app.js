@@ -167,6 +167,7 @@ let state = {
 	lastTimestamp: -1,
 	debugMode: false,
 	errorBanners: [],
+	useBackCamera: false,
 };
 
 // DOM Elements
@@ -176,6 +177,7 @@ const elements = {
 	pauseBtn: document.getElementById("pause-btn"),
 	resetBtn: document.getElementById("reset-btn"),
 	debugToggleBtn: document.getElementById("debug-toggle-btn"),
+	rearCameraToggle: document.getElementById("rear-camera-toggle"),
 	exerciseSelect: document.getElementById("exercise-select"),
 	videoContainer: document.getElementById("video-container"),
 	statusMessage: document.getElementById("status-message"),
@@ -202,6 +204,9 @@ const elements = {
 elements.stopBtn.disabled = true;
 elements.pauseBtn.disabled = true;
 elements.pauseBtn.textContent = "Pause";
+if (elements.rearCameraToggle) {
+	elements.rearCameraToggle.checked = false;
+}
 
 // Calculate angle between three points using official formula
 function calculateAngle(pointA, pointB, pointC) {
@@ -349,13 +354,7 @@ async function startWebcam() {
 	try {
 		showProgress(20, "Requesting camera access...");
 
-		const stream = await navigator.mediaDevices.getUserMedia({
-			video: {
-				width: { ideal: 1280 },
-				height: { ideal: 720 },
-				facingMode: "user",
-			},
-		});
+		const stream = await getCameraStream(state.useBackCamera);
 
 		showProgress(50, "Initializing video stream...");
 
@@ -412,6 +411,47 @@ async function startWebcam() {
 		}
 		updateStatus("error", "Camera problem");
 		return false;
+	}
+}
+
+function buildCameraConstraints(useRear) {
+	return {
+		video: {
+			width: { ideal: 1280 },
+			height: { ideal: 720 },
+			facingMode: useRear
+				? { ideal: "environment" }
+				: { ideal: "user" },
+		},
+		audio: false,
+	};
+}
+
+async function getCameraStream(useRear) {
+	try {
+		return await navigator.mediaDevices.getUserMedia(
+			buildCameraConstraints(useRear)
+		);
+	} catch (error) {
+		if (useRear) {
+			console.warn(
+				"Back camera unavailable. Falling back to front camera.",
+				error
+			);
+			updateFeedback(
+				"Back camera not available on this device. Using front camera.",
+				"warning",
+				{ force: true }
+			);
+			state.useBackCamera = false;
+			if (elements.rearCameraToggle) {
+				elements.rearCameraToggle.checked = false;
+			}
+			return navigator.mediaDevices.getUserMedia(
+				buildCameraConstraints(false)
+			);
+		}
+		throw error;
 	}
 }
 
@@ -1243,6 +1283,12 @@ elements.pauseBtn.addEventListener("click", () => {
 elements.resetBtn.addEventListener("click", () => {
 	resetStats();
 });
+
+if (elements.rearCameraToggle) {
+	elements.rearCameraToggle.addEventListener("change", (event) => {
+		state.useBackCamera = event.target.checked;
+	});
+}
 
 elements.exerciseSelect.addEventListener("change", (e) => {
 	state.currentExercise = e.target.value;
