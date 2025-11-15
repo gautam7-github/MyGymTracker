@@ -5,6 +5,7 @@
   --color-text: #1d1d1f;
   --color-text-secondary: #6e6e73;
   --shadow-soft: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --space-4: 4px;
   --space-8: 8px;
   --space-12: 12px;
   --space-16: 16px;
@@ -202,6 +203,11 @@ main {
   font-size: 16px;
 }
 
+.fps-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--color-text);
+}
+
 .fps-counter {
   display: flex;
   align-items: center;
@@ -249,10 +255,10 @@ main {
 .progress-bar {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  min-height: 40px;
+  min-height: 32px;
   display: flex;
   align-items: center;
-  padding: 0 var(--space-16);
+  padding: 0 var(--space-12);
 }
 
 .progress-fill {
@@ -266,7 +272,8 @@ main {
   display: flex;
   flex-direction: column;
   gap: var(--space-12);
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
 }
 
