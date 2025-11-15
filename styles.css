@@ -13,6 +13,7 @@
   --radius-md: 8px;
   --radius-lg: 12px;
   --shadow-soft: 0 2px 4px rgba(0, 0, 0, 0.05);
+  --action-bar-height: 72px;
 }
 
 * {
@@ -128,6 +129,10 @@ select:focus-visible,
   height: 18px;
 }
 
+.camera-options-btn {
+  min-height: 40px;
+}
+
 .action-bar {
   position: fixed;
   left: 0;
@@ -135,6 +140,7 @@ select:focus-visible,
   bottom: 0;
   padding: var(--space-12);
   padding-bottom: calc(var(--space-12) + env(safe-area-inset-bottom, 0));
+  min-height: var(--action-bar-height);
   background: var(--color-white);
   border-top: 1px solid var(--color-border);
   display: flex;
@@ -145,6 +151,73 @@ select:focus-visible,
 .action-bar button {
   flex: 1 0 0;
   min-height: 44px;
+}
+
+.camera-sheet {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  justify-content: flex-end;
+  align-items: flex-end;
+  padding: var(--space-16);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease;
+  z-index: 150;
+}
+
+.camera-sheet.open {
+  opacity: 1;
+  visibility: visible;
+}
+
+.camera-sheet__content {
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  width: 100%;
+  max-width: 360px;
+  padding: var(--space-16);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.camera-sheet__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sheet-close {
+  border: none;
+  background: none;
+  color: var(--color-text);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+.sheet-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.camera-device-list {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-8);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.camera-device-option {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding: var(--space-4) 0;
+  font-size: 14px;
 }
 
 main {
@@ -431,6 +504,19 @@ main {
   gap: var(--space-8);
 }
 
+.session-summary .summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-8);
+  font-size: 14px;
+}
+
+.session-summary .summary-value {
+  font-size: 18px;
+  font-weight: 600;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
 @media (min-width: 900px) {
   body {
     padding-bottom: 0;
@@ -457,6 +543,15 @@ main {
 
   .action-bar button {
     min-width: 90px;
+  }
+
+  .camera-sheet {
+    align-items: center;
+    justify-content: center;
+  }
+
+  .camera-sheet__content {
+    max-width: 420px;
   }
 
   main {

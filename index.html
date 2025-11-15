@@ -20,6 +20,7 @@
             <option value="squat">Squat</option>
             <option value="pushup">Push-up</option>
             <option value="pullup">Pull-up</option>
+            <option value="lunge">Lunge</option>
             <option value="deadlift">Deadlift</option>
             <option value="plank">Plank hold</option>
           </select>
@@ -28,11 +29,36 @@
           <input type="checkbox" id="rear-camera-toggle" />
           <span>Back camera</span>
         </label>
+        <button type="button" class="secondary camera-options-btn" id="cameraOptionsBtn" aria-haspopup="dialog" aria-controls="cameraSheet">
+          Camera options
+        </button>
         <div class="action-bar" aria-label="Session actions">
           <button id="camera-btn" type="button" aria-label="Start the camera session">Start</button>
           <button id="stop-btn" class="secondary" type="button" disabled aria-label="Stop the camera session">Stop</button>
           <button id="pause-btn" class="secondary" type="button" disabled aria-label="Pause or resume tracking">Pause</button>
           <button id="reset-btn" class="secondary" type="button" aria-label="Reset repetitions and timer">Reset</button>
+        </div>
+      </div>
+      <div class="camera-sheet" id="cameraSheet" aria-hidden="true">
+        <div class="camera-sheet__content" role="dialog" aria-modal="true" aria-label="Camera options" tabindex="-1">
+          <div class="camera-sheet__header">
+            <h2>Camera options</h2>
+            <button type="button" class="sheet-close" id="closeCameraSheet" aria-label="Close camera options">Close</button>
+          </div>
+          <div class="sheet-section">
+            <label for="cameraPreference">Preferred view</label>
+            <select id="cameraPreference">
+              <option value="auto">Auto (best available)</option>
+              <option value="back">Back camera</option>
+              <option value="front">Front camera</option>
+            </select>
+          </div>
+          <div class="sheet-section">
+            <p>Detected cameras</p>
+            <div id="cameraDeviceList" class="camera-device-list">
+              <p class="placeholder-text">Detecting cameras…</p>
+            </div>
+          </div>
         </div>
       </div>
     </header>
@@ -61,6 +87,11 @@
       </section>
 
       <aside class="sidebar" aria-label="Session stats">
+        <div class="sidebar-section session-summary" id="sessionSummary">
+          <h2>Last session</h2>
+          <p class="placeholder-text">No session recorded yet.</p>
+        </div>
+
         <div class="sidebar-section rep-section">
           <span class="rep-label">Reps</span>
           <span class="rep-count numeric" id="rep-count" aria-live="polite">0</span>

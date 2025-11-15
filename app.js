@@ -10,6 +10,9 @@ const EXERCISES = {
 		downBuffer: 20,
 		upBuffer: 10,
 		minFrames: 15,
+		minRange: 50,
+		minDurationMs: 400,
+		maxDurationMs: 8000,
 		instructions:
 			"Keep your back straight, curl weights to shoulders, lower with control",
 		formChecks: [
@@ -26,6 +29,9 @@ const EXERCISES = {
 		downBuffer: 10,
 		upBuffer: 10,
 		minFrames: 15,
+		minRange: 40,
+		minDurationMs: 400,
+		maxDurationMs: 6000,
 		instructions:
 			"Press overhead until arms extended, lower to shoulder level",
 		formChecks: [
@@ -42,6 +48,9 @@ const EXERCISES = {
 		upBuffer: 10,
 		downBuffer: 10,
 		minFrames: 20,
+		minRange: 70,
+		minDurationMs: 500,
+		maxDurationMs: 9000,
 		instructions:
 			"Keep back straight, lower until thighs parallel, drive through heels",
 		formChecks: ["Knees over toes", "Back straight", "Full depth"],
@@ -54,6 +63,9 @@ const EXERCISES = {
 		upBuffer: 10,
 		downBuffer: 10,
 		minFrames: 15,
+		minRange: 45,
+		minDurationMs: 400,
+		maxDurationMs: 7000,
 		instructions:
 			"Maintain body straight line, lower chest near ground, push back up",
 		formChecks: ["Body alignment", "Controlled descent", "Full extension"],
@@ -66,6 +78,9 @@ const EXERCISES = {
 		downBuffer: 10,
 		upBuffer: 10,
 		minFrames: 20,
+		minRange: 60,
+		minDurationMs: 500,
+		maxDurationMs: 9000,
 		instructions:
 			"Pull until chin over bar, lower with control to full extension",
 		formChecks: ["No kipping", "Controlled movement", "Full range"],
@@ -78,9 +93,31 @@ const EXERCISES = {
 		downBuffer: 10,
 		upBuffer: 10,
 		minFrames: 20,
+		minRange: 60,
+		minDurationMs: 500,
+		maxDurationMs: 9000,
 		instructions:
 			"Keep back flat, lift with hips and legs, full upright position",
 		formChecks: ["Flat back", "Hip drive", "Shoulders back"],
+	},
+	lunge: {
+		name: "Lunge",
+		landmarks: [23, 25, 27],
+		upThreshold: 150,
+		downThreshold: 110,
+		upBuffer: 10,
+		downBuffer: 10,
+		minFrames: 18,
+		minRange: 60,
+		minDurationMs: 500,
+		maxDurationMs: 9000,
+		instructions:
+			"Step through each lunge with a tall torso and drive through the lead heel.",
+		formChecks: [
+			"Knee tracks over ankle",
+			"Hips stay square",
+			"Controlled up/down tempo",
+		],
 	},
 	plank: {
 		name: "Plank",
@@ -135,9 +172,15 @@ const FEEDBACK_COOLDOWN_MS = 3000;
 const BANNER_COOLDOWN_MS = 6000;
 const MAX_FEEDBACK_ITEMS = 3;
 const MIN_VISIBILITY = 0.6;
+const VISIBILITY_HISTORY_FRAMES = 6;
+const VISIBILITY_WARNING_FRAMES = 18;
+const SIDE_SWITCH_NOTICE_COOLDOWN = 4000;
 const isMobileDevice =
 	/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||
 	window.innerWidth < 768;
+const DEFAULT_MIN_DURATION_MS = 300;
+const DEFAULT_MAX_DURATION_MS = 10000;
+const SMOOTHING_WINDOW = 5;
 const PROFILE_LANDMARK_SETS = {
 	squat: [
 		[23, 25, 27],
@@ -202,7 +245,25 @@ let state = {
 	debugMode: false,
 	errorBanners: [],
 	useBackCamera: isMobileDevice,
+	preferredFacing: isMobileDevice ? "environment" : "user",
+	selectedCameraId: null,
+	availableCameras: [],
+	isSwitchingCamera: false,
+	pendingCameraChange: null,
+	sessionMetrics: {
+		angleSum: 0,
+		confidenceSum: 0,
+		angleSamples: 0,
+		startTime: null,
+	},
+	lastSessionSummary: null,
 	activeLandmarkSet: null,
+	activeLandmarkKey: null,
+	activeLandmarkScore: null,
+	repTracker: null,
+	visibilityHistory: new Map(),
+	visibilityLossFrames: 0,
+	lastSideSwitchNotice: 0,
 };
 
 // DOM Elements
@@ -211,6 +272,14 @@ const elements = {
 	stopBtn: document.getElementById("stop-btn"),
 	pauseBtn: document.getElementById("pause-btn"),
 	resetBtn: document.getElementById("reset-btn"),
+	cameraOptionsBtn: document.getElementById("cameraOptionsBtn"),
+	closeCameraSheet: document.getElementById("closeCameraSheet"),
+	cameraSheet: document.getElementById("cameraSheet"),
+	cameraSheetContent: document.querySelector(
+		"#cameraSheet .camera-sheet__content"
+	),
+	cameraPreferenceSelect: document.getElementById("cameraPreference"),
+	cameraDeviceList: document.getElementById("cameraDeviceList"),
 	debugToggleBtn: document.getElementById("debug-toggle-btn"),
 	rearCameraToggle: document.getElementById("rear-camera-toggle"),
 	exerciseSelect: document.getElementById("exercise-select"),
@@ -230,6 +299,7 @@ const elements = {
 	confidenceValue: document.getElementById("confidence-value"),
 	formFeedback: document.getElementById("form-feedback"),
 	instructions: document.getElementById("instructions"),
+	sessionSummary: document.getElementById("sessionSummary"),
 	debugPanel: document.getElementById("debug-panel"),
 	debugTimestamp: document.getElementById("debug-timestamp"),
 	debugDelta: document.getElementById("debug-delta"),
@@ -242,26 +312,18 @@ elements.pauseBtn.textContent = "Pause";
 if (elements.rearCameraToggle) {
 	elements.rearCameraToggle.checked = state.useBackCamera;
 }
-if (elements.rearCameraToggle) {
-	elements.rearCameraToggle.checked = state.useBackCamera;
-}
+syncCameraPreferenceUI();
+renderSessionSummary();
 
 // Calculate angle between three points using official formula
 function calculateAngle(pointA, pointB, pointC) {
-	const radians =
-		Math.atan2(pointC.y - pointB.y, pointC.x - pointB.x) -
-		Math.atan2(pointA.y - pointB.y, pointA.x - pointB.x);
-	let angle = Math.abs((radians * 180.0) / Math.PI);
-	if (angle > 180) {
-		angle = 360 - angle;
-	}
-	return angle;
+	return calculateAngle3D(pointA, pointB, pointC);
 }
 
 // Smooth angle using moving average (last 3 frames)
 function smoothAngle(angle) {
 	state.angleHistory.push(angle);
-	if (state.angleHistory.length > 3) {
+	if (state.angleHistory.length > SMOOTHING_WINDOW) {
 		state.angleHistory.shift();
 	}
 	const sum = state.angleHistory.reduce((a, b) => a + b, 0);
@@ -332,6 +394,274 @@ function renderFeedbackPlaceholder() {
 		'<p class="placeholder-text">Start exercising to see feedback.</p>';
 }
 
+function openCameraSheet() {
+	if (!elements.cameraSheet) return;
+	refreshCameraDevices();
+	renderCameraDeviceList();
+	elements.cameraSheet.classList.add("open");
+	elements.cameraSheet.setAttribute("aria-hidden", "false");
+	if (elements.cameraSheetContent) {
+		elements.cameraSheetContent.focus();
+	}
+}
+
+function closeCameraSheet() {
+	if (!elements.cameraSheet) return;
+	elements.cameraSheet.classList.remove("open");
+	elements.cameraSheet.setAttribute("aria-hidden", "true");
+}
+
+function handleCameraPreferenceChange(value) {
+	const previousPreference = captureCameraPreference();
+	state.selectedCameraId = null;
+	switch (value) {
+		case "back":
+			state.useBackCamera = true;
+			state.preferredFacing = "environment";
+			break;
+		case "front":
+			state.useBackCamera = false;
+			state.preferredFacing = "user";
+			break;
+		default:
+			state.useBackCamera = isMobileDevice;
+			state.preferredFacing = state.useBackCamera ? "environment" : "user";
+	}
+	if (elements.rearCameraToggle) {
+		elements.rearCameraToggle.checked = state.useBackCamera;
+	}
+	syncCameraPreferenceUI();
+	renderCameraDeviceList();
+	applyCameraPreferenceChange(previousPreference).catch(() => {});
+}
+
+function selectCameraDevice(deviceId) {
+	const previousPreference = captureCameraPreference();
+	state.selectedCameraId = deviceId;
+	state.useBackCamera = false;
+	state.preferredFacing = null;
+	if (elements.rearCameraToggle) {
+		elements.rearCameraToggle.checked = false;
+	}
+	syncCameraPreferenceUI();
+	renderCameraDeviceList();
+	applyCameraPreferenceChange(previousPreference).catch(() => {});
+}
+
+async function refreshCameraDevices() {
+	if (!navigator.mediaDevices?.enumerateDevices) {
+		return;
+	}
+	try {
+		const devices = await navigator.mediaDevices.enumerateDevices();
+		state.availableCameras = devices.filter(
+			(device) => device.kind === "videoinput"
+		);
+		renderCameraDeviceList();
+	} catch (error) {
+		console.warn("Unable to enumerate cameras:", error);
+	}
+}
+
+function renderCameraDeviceList() {
+	if (!elements.cameraDeviceList) return;
+	if (!state.availableCameras.length) {
+		elements.cameraDeviceList.innerHTML =
+			'<p class="placeholder-text">No additional cameras detected.</p>';
+		return;
+	}
+	const fragment = document.createDocumentFragment();
+	state.availableCameras.forEach((device, index) => {
+		const option = document.createElement("label");
+		option.className = "camera-device-option";
+		const input = document.createElement("input");
+		input.type = "radio";
+		input.name = "cameraDevice";
+		input.value = device.deviceId;
+		input.checked = state.selectedCameraId === device.deviceId;
+		input.addEventListener("change", () =>
+			selectCameraDevice(device.deviceId)
+		);
+		const text = document.createElement("span");
+		text.textContent = device.label || `Camera ${index + 1}`;
+		option.appendChild(input);
+		option.appendChild(text);
+		fragment.appendChild(option);
+	});
+	elements.cameraDeviceList.innerHTML = "";
+	elements.cameraDeviceList.appendChild(fragment);
+}
+
+function beginSessionMetrics() {
+	state.sessionMetrics = {
+		angleSum: 0,
+		confidenceSum: 0,
+		angleSamples: 0,
+		startTime: Date.now(),
+	};
+	state.repTracker = null;
+	state.pendingCameraChange = null;
+	resetVisibilityTracking();
+}
+
+function recordSessionSample(angle, confidencePercent) {
+	if (!state.sessionMetrics.startTime) return;
+	state.sessionMetrics.angleSum += angle;
+	state.sessionMetrics.confidenceSum += confidencePercent;
+	state.sessionMetrics.angleSamples += 1;
+}
+
+function finalizeSessionSummary() {
+	if (!state.sessionMetrics.startTime) {
+		return;
+	}
+	const durationMs = Date.now() - state.sessionMetrics.startTime;
+	const avgAngle =
+		state.sessionMetrics.angleSamples > 0
+			? state.sessionMetrics.angleSum / state.sessionMetrics.angleSamples
+			: null;
+	const avgQuality =
+		state.sessionMetrics.angleSamples > 0
+			? state.sessionMetrics.confidenceSum /
+			  state.sessionMetrics.angleSamples
+			: null;
+	state.lastSessionSummary = {
+		reps: state.repCount,
+		durationMs,
+		avgAngle,
+		avgQuality,
+	};
+	renderSessionSummary();
+	state.sessionMetrics = {
+		angleSum: 0,
+		confidenceSum: 0,
+		angleSamples: 0,
+		startTime: null,
+	};
+	state.sessionMetrics.startTime = null;
+}
+
+function renderSessionSummary() {
+	if (!elements.sessionSummary) return;
+	if (!state.lastSessionSummary) {
+		elements.sessionSummary.innerHTML = `
+      <h2>Last session</h2>
+      <p class="placeholder-text">No session recorded yet.</p>
+    `;
+		return;
+	}
+	const { reps, durationMs, avgAngle, avgQuality } = state.lastSessionSummary;
+	const minutes = Math.floor(durationMs / 60000);
+	const seconds = Math.floor((durationMs % 60000) / 1000)
+		.toString()
+		.padStart(2, "0");
+	elements.sessionSummary.innerHTML = `
+    <h2>Last session</h2>
+    <div class="summary-grid">
+      <div>
+        <div class="status-label">Reps</div>
+        <div class="summary-value">${reps}</div>
+      </div>
+      <div>
+        <div class="status-label">Time</div>
+        <div class="summary-value">${minutes}:${seconds}</div>
+      </div>
+      <div>
+        <div class="status-label">Avg angle</div>
+        <div class="summary-value">${
+					avgAngle ? `${Math.round(avgAngle)}°` : "--"
+				}</div>
+      </div>
+      <div>
+        <div class="status-label">Avg quality</div>
+        <div class="summary-value">${
+					avgQuality ? `${Math.round(avgQuality)}%` : "--"
+				}</div>
+      </div>
+    </div>
+  `;
+}
+
+function resetVisibilityTracking() {
+	state.activeLandmarkSet = null;
+	state.visibilityHistory = new Map();
+	state.visibilityLossFrames = 0;
+	state.activeLandmarkKey = null;
+	state.activeLandmarkScore = null;
+	state.lastSideSwitchNotice = 0;
+}
+
+function recordVisibilityScore(key, score) {
+	if (!state.visibilityHistory.has(key)) {
+		state.visibilityHistory.set(key, []);
+	}
+	const history = state.visibilityHistory.get(key);
+	history.push(score);
+	if (history.length > VISIBILITY_HISTORY_FRAMES) {
+		history.shift();
+	}
+	const average =
+		history.reduce((sum, value) => sum + value, 0) / history.length;
+	return average;
+}
+
+function describeLandmarkSet(indices = []) {
+	if (!indices.length) return "best side";
+	const isLeft = indices.every((idx) => idx % 2 === 1);
+	const isRight = indices.every((idx) => idx % 2 === 0);
+	if (isLeft) return "left side";
+	if (isRight) return "right side";
+	return "best angle";
+}
+
+function announceSideSwitch(indices) {
+	const now = Date.now();
+	if (now - state.lastSideSwitchNotice < SIDE_SWITCH_NOTICE_COOLDOWN) {
+		return;
+	}
+	state.lastSideSwitchNotice = now;
+	updateFeedback(
+		`Tracking your ${describeLandmarkSet(indices)} for a clearer view.`,
+		"info",
+		{ replace: false }
+	);
+}
+
+function handleVisibilityInterruption(reason = "landmarks") {
+	state.visibilityLossFrames = (state.visibilityLossFrames || 0) + 1;
+	const statusText =
+		reason === "confidence" ? "Low visibility" : "Move into view";
+	updateStatus("ready", statusText);
+	elements.stage.textContent = "Adjust";
+	state.currentStage = "Adjust";
+	state.stageFrameCount = 0;
+	elements.primaryAngle.textContent = "-";
+	elements.smoothedAngle.textContent = "-";
+	elements.confidenceValue.textContent = "--";
+	elements.confidenceValue.className = "confidence-value";
+	if (state.visibilityLossFrames % VISIBILITY_WARNING_FRAMES === 0) {
+		updateFeedback(
+			"Joint not visible — move fully into frame.",
+			"warning"
+		);
+	}
+}
+
+function syncCameraPreferenceUI() {
+	if (elements.rearCameraToggle) {
+		elements.rearCameraToggle.checked = state.useBackCamera;
+	}
+	if (!elements.cameraPreferenceSelect) return;
+	let value = "auto";
+	if (state.selectedCameraId) {
+		value = "auto";
+	} else if (state.preferredFacing === "environment") {
+		value = "back";
+	} else if (state.preferredFacing === "user") {
+		value = "front";
+	}
+	elements.cameraPreferenceSelect.value = value;
+}
 function getVisibleLandmark(landmarks, index) {
 	if (!landmarks || index == null) return null;
 	const point = landmarks[index];
@@ -412,26 +742,52 @@ function computeExerciseAngle(exerciseKey, landmarks, worldLandmarks) {
 		PROFILE_LANDMARK_SETS[exerciseKey] ||
 		[EXERCISES[exerciseKey].landmarks];
 	const candidates = [];
+	let weightedSum = 0;
+	let totalWeight = 0;
+	let bestCandidate = null;
+
 	for (const indices of sets) {
 		const result = getJointAngleFromIndices(
 			landmarks,
 			worldLandmarks,
 			indices
 		);
-		if (result) {
-			candidates.push(result);
+		if (!result) {
+			continue;
+		}
+		const key = indices.join("-");
+		const historical =
+			recordVisibilityScore(key, result.score) || result.score;
+		const weight = (result.score + historical) / 2;
+		const candidate = Object.assign({}, result, {
+			key,
+			weight,
+		});
+		candidates.push(candidate);
+		weightedSum += candidate.angle * weight;
+		totalWeight += weight;
+		if (!bestCandidate || weight > bestCandidate.weight) {
+			bestCandidate = candidate;
 		}
 	}
+
 	if (!candidates.length) {
 		return null;
 	}
-	const averageAngle =
-		candidates.reduce((sum, entry) => sum + entry.angle, 0) /
-		candidates.length;
-	const bestCandidate = candidates.reduce((best, entry) =>
-		entry.score > best.score ? entry : best
-	);
-	return { angle: averageAngle, indices: bestCandidate.indices };
+
+	const averagedAngle =
+		totalWeight > 0 && Number.isFinite(weightedSum / totalWeight)
+			? weightedSum / totalWeight
+			: bestCandidate.angle;
+
+	return {
+		angle: averagedAngle,
+		indices: bestCandidate.indices,
+		key: bestCandidate.key,
+		score: bestCandidate.score,
+		weight: bestCandidate.weight,
+		candidates,
+	};
 }
 
 function pickVisibleSet(landmarks, sets) {
@@ -574,16 +930,43 @@ async function startWebcam() {
 }
 
 function buildCameraConstraints(useRear) {
-	return {
+	const constraints = {
 		video: {
 			width: { ideal: 1280 },
 			height: { ideal: 720 },
-			facingMode: useRear
-				? { ideal: "environment" }
-				: { ideal: "user" },
 		},
 		audio: false,
 	};
+	if (state.selectedCameraId) {
+		constraints.video.deviceId = { exact: state.selectedCameraId };
+	} else if (state.preferredFacing) {
+		constraints.video.facingMode = { ideal: state.preferredFacing };
+	} else {
+		constraints.video.facingMode = {
+			ideal: useRear ? "environment" : "user",
+		};
+	}
+	return constraints;
+}
+
+function captureCameraPreference() {
+	return {
+		useBackCamera: state.useBackCamera,
+		selectedCameraId: state.selectedCameraId,
+		preferredFacing: state.preferredFacing,
+	};
+}
+
+function restoreCameraPreference(preference) {
+	if (!preference) return;
+	state.useBackCamera = preference.useBackCamera;
+	state.selectedCameraId = preference.selectedCameraId;
+	state.preferredFacing = preference.preferredFacing;
+	if (elements.rearCameraToggle) {
+		elements.rearCameraToggle.checked = state.useBackCamera;
+	}
+	syncCameraPreferenceUI();
+	renderCameraDeviceList();
 }
 
 async function getCameraStream(useRear) {
@@ -606,6 +989,7 @@ async function getCameraStream(useRear) {
 			if (elements.rearCameraToggle) {
 				elements.rearCameraToggle.checked = false;
 			}
+			syncCameraPreferenceUI();
 			return navigator.mediaDevices.getUserMedia(
 				buildCameraConstraints(false)
 			);
@@ -614,8 +998,78 @@ async function getCameraStream(useRear) {
 	}
 }
 
+function waitForVideoMetadata(video) {
+	if (!video) {
+		return Promise.resolve();
+	}
+	if (video.readyState >= 2) {
+		return Promise.resolve();
+	}
+	return new Promise((resolve) => {
+		video.addEventListener("loadedmetadata", () => resolve(), {
+			once: true,
+		});
+	});
+}
+
+async function swapCameraStream() {
+	if (!state.webcam) return;
+	const previousStream = state.webcam.srcObject;
+	const nextStream = await getCameraStream(state.useBackCamera);
+	state.webcam.srcObject = nextStream;
+	await waitForVideoMetadata(state.webcam);
+	await state.webcam.play();
+	if (state.canvas) {
+		state.canvas.width = state.webcam.videoWidth;
+		state.canvas.height = state.webcam.videoHeight;
+	}
+	if (previousStream) {
+		previousStream.getTracks().forEach((track) => track.stop());
+	}
+}
+
+async function applyCameraPreferenceChange(previousPreference = null) {
+	if (!state.isRunning || !state.webcam) {
+		return;
+	}
+	if (state.isSwitchingCamera) {
+		state.pendingCameraChange = previousPreference;
+		return;
+	}
+	state.pendingCameraChange = null;
+	state.isSwitchingCamera = true;
+	try {
+		updateStatus("ready", "Switching camera");
+		await swapCameraStream();
+		updateStatus("active", "Tracking form");
+		updateFeedback("Camera view updated.", "good");
+	} catch (error) {
+		console.error("Unable to switch camera", error);
+		updateFeedback("Unable to switch camera.", "error");
+		showErrorBanner("Camera switch failed. Please try again.");
+		if (previousPreference) {
+			restoreCameraPreference(previousPreference);
+		}
+		throw error;
+	} finally {
+		state.isSwitchingCamera = false;
+		if (state.pendingCameraChange) {
+			const pending = state.pendingCameraChange;
+			state.pendingCameraChange = null;
+			applyCameraPreferenceChange(pending).catch(() => {});
+		}
+	}
+}
+
 // Stop webcam and cleanup
 function stopWebcam() {
+	if (state.isRunning && state.sessionMetrics.startTime) {
+		finalizeSessionSummary();
+	}
+	state.repTracker = null;
+	resetVisibilityTracking();
+	state.isSwitchingCamera = false;
+	state.pendingCameraChange = null;
 	if (state.webcam && state.webcam.srcObject) {
 		state.webcam.srcObject.getTracks().forEach((track) => track.stop());
 	}
@@ -941,32 +1395,34 @@ function analyzeExercise(landmarks, worldLandmarks) {
 		worldLandmarks
 	);
 
-	const resetIndicators = () => {
-		elements.primaryAngle.textContent = "-";
-		elements.smoothedAngle.textContent = "-";
-		elements.confidenceValue.textContent = "--";
-		elements.confidenceValue.className = "confidence-value";
-		elements.stage.textContent = "Waiting";
-	};
-
 	if (!angleResult) {
-		updateStatus("ready", "Some landmarks missing");
+		handleVisibilityInterruption("landmarks");
 		state.activeLandmarkSet = null;
-		resetIndicators();
 		return;
 	}
 
-	const { angle, indices } = angleResult;
+	const { angle, indices, key, score } = angleResult;
 	const points = indices.map((idx) => getVisibleLandmark(landmarks, idx));
 	if (points.some((pt) => !pt)) {
-		updateStatus("ready", "Some landmarks missing");
+		handleVisibilityInterruption("landmarks");
 		state.activeLandmarkSet = null;
-		resetIndicators();
 		return;
 	}
 	state.activeLandmarkSet = indices;
+	state.activeLandmarkKey = key;
+	state.activeLandmarkScore = score;
+	state.visibilityLossFrames = 0;
 
 	updateStatus("active", "Tracking form");
+
+	if (state.repTracker) {
+		if (state.repTracker.lastLandmarkKey !== key) {
+			if (state.repTracker.lastLandmarkKey) {
+				announceSideSwitch(indices);
+			}
+			state.repTracker.lastLandmarkKey = key;
+		}
+	}
 
 	const avgConfidence =
 		points.reduce((sum, point) => sum + (point.visibility || 0), 0) /
@@ -989,11 +1445,17 @@ function analyzeExercise(landmarks, worldLandmarks) {
 	elements.smoothedAngle.textContent = `${Math.round(
 		state.smoothedAngle
 	)}°`;
+	recordSessionSample(state.smoothedAngle, confidencePercent);
 
 	if (exercise.trackTime) {
 		trackPlankHold(landmarks, exercise);
 	} else {
-		countReps(state.smoothedAngle, exercise, landmarks);
+		countReps(
+			state.smoothedAngle,
+			exercise,
+			landmarks,
+			confidencePercent
+		);
 	}
 
 	provideFormFeedback(state.smoothedAngle, exercise, landmarks);
@@ -1023,67 +1485,211 @@ function getPoint(landmarks, index) {
 }
 
 // Count repetitions with hysteresis and frame validation
-function countReps(angle, exercise, landmarks) {
+function getStageLabel(position) {
+	if (position === "bottom") {
+		if (state.currentExercise === "squat") return "SQUAT";
+		if (state.currentExercise === "deadlift") return "DOWN";
+		if (state.currentExercise === "lunge") return "LUNGE";
+		return "BOTTOM";
+	}
+	if (position === "top") {
+		if (
+			state.currentExercise === "squat" ||
+			state.currentExercise === "deadlift" ||
+			state.currentExercise === "lunge"
+		) {
+			return "STANDING";
+		}
+		return "TOP";
+	}
+	return "READY";
+}
+
+function getRepThresholds(exercise, fallbackAngle) {
+	const rawTop = exercise.upThreshold ?? fallbackAngle;
+	const rawBottom = exercise.downThreshold ?? fallbackAngle;
+	const upBuffer = exercise.upBuffer ?? 0;
+	const downBuffer = exercise.downBuffer ?? 0;
+	let top = Math.min(180, rawTop + upBuffer);
+	let bottom = Math.max(0, rawBottom - downBuffer);
+	if (bottom > top) {
+		const midpoint = (bottom + top) / 2;
+		bottom = Math.max(0, midpoint - 5);
+		top = Math.min(180, midpoint + 5);
+	}
+	return {
+		top,
+		bottom,
+	};
+}
+
+function ensureRepTracker(initialAngle, exercise, thresholds) {
+	const now = performance.now();
+	if (!state.repTracker) {
+		let phase = "top";
+		if (initialAngle <= thresholds.bottom) {
+			phase = "bottom";
+		} else if (initialAngle > thresholds.bottom && initialAngle < thresholds.top) {
+			phase = "mid";
+		}
+		state.repTracker = {
+			phase,
+			thresholds,
+			transitionFrames: 0,
+			framesInPhase: 0,
+			cycleStartTime: now,
+			currentPeak: initialAngle,
+			currentValley: initialAngle,
+			lastRepTime: 0,
+			visibilityHoldFrames: 0,
+			lastLandmarkKey: state.activeLandmarkKey || null,
+		};
+		const stageLabel =
+			phase === "bottom"
+				? getStageLabel("bottom")
+				: phase === "top"
+				? getStageLabel("top")
+				: getStageLabel("ready");
+		elements.stage.textContent = stageLabel;
+		state.currentStage = stageLabel;
+	} else {
+		state.repTracker.thresholds = thresholds;
+	}
+	return state.repTracker;
+}
+
+function countReps(angle, exercise, landmarks, confidencePercent) {
 	state.frameCount++;
+	const thresholds = getRepThresholds(exercise, angle);
+	const tracker = ensureRepTracker(angle, exercise, thresholds);
+	const now = performance.now();
+	const minFrames = exercise.minFrames || 12;
+	const transitionRequirement = Math.max(
+		5,
+		Math.min(8, Math.floor(minFrames / 2))
+	);
+	const minDuration = exercise.minDurationMs || DEFAULT_MIN_DURATION_MS;
+	const maxDuration = exercise.maxDurationMs || DEFAULT_MAX_DURATION_MS;
+	const minRange = exercise.minRange || 40;
+	const stageLabelTop = getStageLabel("top");
+	const stageLabelBottom = getStageLabel("bottom");
 
-	// Apply hysteresis buffers to prevent oscillation
-	const downThreshold = exercise.downThreshold + exercise.downBuffer;
-	const upThreshold = exercise.upThreshold - exercise.upBuffer;
+	const visibilityOk = confidencePercent >= MIN_VISIBILITY * 100;
+	if (!visibilityOk) {
+		tracker.visibilityHoldFrames =
+			(tracker.visibilityHoldFrames || 0) + 1;
+		handleVisibilityInterruption("confidence");
+		tracker.phase = "visibility_pause";
+		tracker.transitionFrames = 0;
+		tracker.framesInPhase = 0;
+		return;
+	}
 
-	if (
-		state.currentExercise === "bicep_curl" ||
-		state.currentExercise === "shoulder_press" ||
-		state.currentExercise === "pushup" ||
-		state.currentExercise === "pullup"
-	) {
-		// Extended position (high angle)
-		if (angle > downThreshold && state.currentStage !== "down") {
-			state.currentStage = "down";
-			state.stageFrameCount = 0;
-			elements.stage.textContent = "DOWN";
-		}
+	state.visibilityLossFrames = 0;
+	tracker.visibilityHoldFrames = 0;
 
-		// Contracted position (low angle)
-		if (angle < upThreshold && state.currentStage === "down") {
-			state.stageFrameCount++;
+	if (tracker.phase === "visibility_pause" || tracker.phase === "mid") {
+		tracker.phase =
+			angle <= thresholds.bottom ? "bottom" : "top";
+		tracker.transitionFrames = 0;
+		tracker.framesInPhase = 0;
+		tracker.cycleStartTime = now;
+		tracker.currentPeak = angle;
+		tracker.currentValley = angle;
+		elements.stage.textContent =
+			tracker.phase === "bottom" ? stageLabelBottom : stageLabelTop;
+		state.currentStage = elements.stage.textContent;
+		updateStatus("active", "Tracking form");
+	}
 
-			// Only count rep if held for minimum frames (prevents jitter)
-			if (state.stageFrameCount >= exercise.minFrames) {
-				state.currentStage = "up";
-				state.stageFrameCount = 0;
-				elements.stage.textContent = "UP";
-				state.repCount++;
-				elements.repCount.textContent = state.repCount;
-				updateFeedback("Rep completed.", "good", { force: true });
+	tracker.thresholds = thresholds;
+	tracker.framesInPhase = (tracker.framesInPhase || 0) + 1;
+	state.stageFrameCount = tracker.framesInPhase;
+
+	tracker.currentPeak = Math.max(tracker.currentPeak ?? angle, angle);
+	tracker.currentValley = Math.min(tracker.currentValley ?? angle, angle);
+
+	const atBottom = angle <= thresholds.bottom;
+	const atTop = angle >= thresholds.top;
+
+	if (tracker.phase === "top") {
+		if (atBottom) {
+			tracker.transitionFrames =
+				(tracker.transitionFrames || 0) + 1;
+			if (tracker.transitionFrames >= transitionRequirement) {
+				tracker.phase = "bottom";
+				tracker.transitionFrames = 0;
+				tracker.framesInPhase = 0;
+				tracker.currentValley = angle;
+				tracker.bottomTimestamp = now;
+				elements.stage.textContent = stageLabelBottom;
+				state.currentStage = stageLabelBottom;
 			}
+		} else {
+			tracker.transitionFrames = 0;
 		}
-	} else if (
-		state.currentExercise === "squat" ||
-		state.currentExercise === "deadlift"
-	) {
-		// Standing position (high angle)
-		if (angle > downThreshold && state.currentStage !== "up") {
-			state.currentStage = "up";
-			state.stageFrameCount = 0;
-			elements.stage.textContent = "STANDING";
+	} else if (tracker.phase === "bottom") {
+		const elapsed = now - tracker.cycleStartTime;
+		if (elapsed > maxDuration) {
+			tracker.phase = "top";
+			tracker.transitionFrames = 0;
+			tracker.framesInPhase = 0;
+			tracker.cycleStartTime = now;
+			tracker.currentPeak = angle;
+			tracker.currentValley = angle;
+			elements.stage.textContent = stageLabelTop;
+			state.currentStage = stageLabelTop;
+			return;
 		}
-
-		// Squat/bent position (low angle)
-		if (angle < upThreshold && state.currentStage === "up") {
-			state.stageFrameCount++;
-
-			// Only count rep if held for minimum frames
-			if (state.stageFrameCount >= exercise.minFrames) {
-				state.currentStage = "down";
-				state.stageFrameCount = 0;
-				elements.stage.textContent =
-					state.currentExercise === "squat" ? "SQUAT" : "DOWN";
-				state.repCount++;
-				elements.repCount.textContent = state.repCount;
-				updateFeedback("Depth reached. Nice work.", "good", {
-					force: true,
-				});
+		if (atTop) {
+			tracker.transitionFrames =
+				(tracker.transitionFrames || 0) + 1;
+			if (tracker.transitionFrames >= transitionRequirement) {
+				const cycleDuration = now - (tracker.cycleStartTime || now);
+				const range =
+					(tracker.currentPeak ?? angle) -
+					(tracker.currentValley ?? angle);
+				if (
+					cycleDuration >= minDuration &&
+					cycleDuration <= maxDuration &&
+					range >= minRange
+				) {
+					state.repCount++;
+					elements.repCount.textContent = state.repCount;
+					updateFeedback("Rep completed.", "good", {
+						force: true,
+					});
+				} else {
+					if (range < minRange) {
+						updateFeedback(
+							"Angle not deep enough for rep.",
+							"warning"
+						);
+					} else if (cycleDuration < minDuration) {
+						updateFeedback(
+							"Movement too fast to count. Slow down slightly.",
+							"warning"
+						);
+					} else if (cycleDuration > maxDuration) {
+						updateFeedback(
+							"Rep timed out — reset and try again.",
+							"warning"
+						);
+					}
+				}
+				tracker.lastRepTime = now;
+				tracker.phase = "top";
+				tracker.transitionFrames = 0;
+				tracker.framesInPhase = 0;
+				tracker.cycleStartTime = now;
+				tracker.currentPeak = angle;
+				tracker.currentValley = angle;
+				tracker.bottomTimestamp = null;
+				elements.stage.textContent = stageLabelTop;
+				state.currentStage = stageLabelTop;
 			}
+		} else {
+			tracker.transitionFrames = 0;
 		}
 	}
 }
@@ -1404,11 +2010,20 @@ function resetStats() {
 	state.repCount = 0;
 	state.currentStage = "none";
 	state.currentAngle = 0;
+	state.smoothedAngle = 0;
+	state.angleHistory = [];
+	state.stageFrameCount = 0;
 	state.feedbackMessages = [];
 	state.feedbackHistory = {};
 	state.bannerHistory = {};
-	state.startTime = Date.now();
+	state.startTime = state.isRunning ? Date.now() : null;
+	state.sessionMetrics.angleSum = 0;
+	state.sessionMetrics.confidenceSum = 0;
+	state.sessionMetrics.angleSamples = 0;
+	state.sessionMetrics.startTime = state.isRunning ? Date.now() : null;
 	state.activeLandmarkSet = null;
+	state.repTracker = null;
+	resetVisibilityTracking();
 
 	elements.repCount.textContent = "0";
 	elements.stage.textContent = "Waiting";
@@ -1455,6 +2070,7 @@ elements.cameraBtn.addEventListener("click", async () => {
 		elements.pauseBtn.disabled = false;
 		elements.pauseBtn.textContent = "Pause";
 		elements.stopBtn.disabled = false;
+		beginSessionMetrics();
 		updateStatus("active", "Tracking form");
 		processPose();
 	} else {
@@ -1484,8 +2100,45 @@ elements.resetBtn.addEventListener("click", () => {
 
 if (elements.rearCameraToggle) {
 	elements.rearCameraToggle.addEventListener("change", (event) => {
+		const previousPreference = captureCameraPreference();
 		state.useBackCamera = event.target.checked;
+		state.selectedCameraId = null;
+		state.preferredFacing = state.useBackCamera ? "environment" : "user";
+		syncCameraPreferenceUI();
+		renderCameraDeviceList();
+		applyCameraPreferenceChange(previousPreference).catch(() => {});
 	});
+}
+
+if (elements.cameraOptionsBtn && elements.cameraSheet) {
+	elements.cameraOptionsBtn.addEventListener("click", openCameraSheet);
+	if (elements.closeCameraSheet) {
+		elements.closeCameraSheet.addEventListener("click", closeCameraSheet);
+	}
+	elements.cameraSheet.addEventListener("click", (event) => {
+		if (event.target === elements.cameraSheet) {
+			closeCameraSheet();
+		}
+	});
+	document.addEventListener("keydown", (event) => {
+		if (
+			event.key === "Escape" &&
+			elements.cameraSheet.classList.contains("open")
+		) {
+			closeCameraSheet();
+		}
+	});
+}
+
+if (elements.cameraPreferenceSelect) {
+	elements.cameraPreferenceSelect.addEventListener("change", (event) =>
+		handleCameraPreferenceChange(event.target.value)
+	);
+}
+
+refreshCameraDevices();
+if (navigator.mediaDevices?.addEventListener) {
+	navigator.mediaDevices.addEventListener("devicechange", refreshCameraDevices);
 }
 
 elements.exerciseSelect.addEventListener("change", (e) => {
