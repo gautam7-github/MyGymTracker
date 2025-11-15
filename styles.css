@@ -30,7 +30,7 @@ body {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
   padding-bottom: calc(var(--action-bar-height) + env(safe-area-inset-bottom, 0));
 }
 
