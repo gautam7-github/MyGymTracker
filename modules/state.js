@@ -51,6 +51,7 @@ export const state = {
 		core: { percent: 0, lastWarning: 0 },
 		lower: { percent: 0, lastWarning: 0 },
 	},
+	motionAlertActive: false,
 	sessionMetrics: {
 		angleSum: 0,
 		confidenceSum: 0,
@@ -109,6 +110,7 @@ export function resetStateValues() {
 		core: { percent: 0, lastWarning: 0 },
 		lower: { percent: 0, lastWarning: 0 },
 	};
+	state.motionAlertActive = false;
 	state.sideUsage = {
 		leftCount: 0,
 		rightCount: 0,
@@ -140,6 +142,7 @@ export function beginSessionMetrics() {
 		core: { percent: 0, lastWarning: 0 },
 		lower: { percent: 0, lastWarning: 0 },
 	};
+	state.motionAlertActive = false;
 	state.sideUsage = {
 		leftCount: 0,
 		rightCount: 0,

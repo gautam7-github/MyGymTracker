@@ -2,6 +2,7 @@ import {
 	BANNER_COOLDOWN_MS,
 	MAX_FEEDBACK_ITEMS,
 	FEEDBACK_COOLDOWN_MS,
+	MIN_VISIBILITY,
 } from "./config.js";
 import { state } from "./state.js";
 
@@ -39,6 +40,7 @@ export const elements = {
 	confidenceCore: document.getElementById("confidence-core"),
 	confidenceLower: document.getElementById("confidence-lower"),
 	confidenceRing: document.getElementById("confidence-ring"),
+	motionAlert: document.getElementById("motion-alert"),
 	formFeedback: document.getElementById("form-feedback"),
 	instructions: document.getElementById("instructions"),
 	sessionSummary: document.getElementById("sessionSummary"),
@@ -307,6 +309,7 @@ export function renderResetState() {
 	if (elements.confidenceLower)
 		elements.confidenceLower.textContent = "--";
 	updateConfidenceRing(0);
+	hideMotionAlert();
 	renderFeedbackPlaceholder();
 }
 
@@ -343,13 +346,32 @@ export function updateConfidenceRing(percent) {
 
 export function updateRegionalConfidence(values = {}) {
 	const { upper = 0, core = 0, lower = 0 } = values;
-	if (elements.confidenceUpper) {
-		elements.confidenceUpper.textContent = `${Math.round(upper)}%`;
+	const threshold = MIN_VISIBILITY * 100;
+	setChip(elements.confidenceUpper, upper, threshold);
+	setChip(elements.confidenceCore, core, threshold);
+	setChip(elements.confidenceLower, lower, threshold);
+}
+
+function setChip(element, value, threshold) {
+	if (!element) return;
+	element.textContent = `${Math.round(value)}%`;
+	if (value < threshold) {
+		element.classList.add("chip-low");
+	} else {
+		element.classList.remove("chip-low");
 	}
-	if (elements.confidenceCore) {
-		elements.confidenceCore.textContent = `${Math.round(core)}%`;
-	}
-	if (elements.confidenceLower) {
-		elements.confidenceLower.textContent = `${Math.round(lower)}%`;
-	}
+}
+
+export function showMotionAlert(message = "Hold steady to keep tracking accurate.") {
+	if (!elements.motionAlert) return;
+	if (state.motionAlertActive) return;
+	elements.motionAlert.textContent = message;
+	elements.motionAlert.classList.add("active");
+	state.motionAlertActive = true;
+}
+
+export function hideMotionAlert() {
+	if (!elements.motionAlert || !state.motionAlertActive) return;
+	elements.motionAlert.classList.remove("active");
+	state.motionAlertActive = false;
 }

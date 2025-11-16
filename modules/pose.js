@@ -28,6 +28,8 @@ import {
 	updateTimer,
 	updateConfidenceRing,
 	updateRegionalConfidence,
+	showMotionAlert,
+	hideMotionAlert,
 } from "./ui.js";
 import { fuseLandmarks } from "./fusion.js";
 import { estimateMoveNet } from "./movenet.js";
@@ -823,11 +825,12 @@ function monitorMotionConsistency(landmarks) {
 
 	const averageVelocity =
 		velocities.reduce((sum, v) => sum + v, 0) / velocities.length;
-	if (averageVelocity > 0.05) {
-		updateFeedback(
-			"Tracking is detecting sudden motion—steady the camera or pause briefly.",
-			"warning"
-		);
+	const jittery =
+		averageVelocity > 0.04 || velocities.some((v) => v > 0.18);
+	if (jittery) {
+		showMotionAlert();
+	} else {
+		hideMotionAlert();
 	}
 
 	state.lastFusedLandmarks = landmarks.map((point) =>
