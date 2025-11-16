@@ -25,6 +25,7 @@ import {
 	updateFPS,
 	updateStatus,
 	updateTimer,
+	updateConfidenceRing,
 } from "./ui.js";
 import { fuseLandmarks } from "./fusion.js";
 import { estimateMoveNet } from "./movenet.js";
@@ -674,6 +675,7 @@ function analyzeExercise(landmarks, worldLandmarks) {
 	} else {
 		elements.confidenceValue.classList.add("low");
 	}
+	updateConfidenceRing(confidencePercent);
 
 	state.currentAngle = angle;
 	state.smoothedAngle = smoothAngle(angle);

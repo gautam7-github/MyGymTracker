@@ -35,6 +35,7 @@ export const elements = {
 	primaryAngle: document.getElementById("primary-angle"),
 	smoothedAngle: document.getElementById("smoothed-angle"),
 	confidenceValue: document.getElementById("confidence-value"),
+	confidenceRing: document.getElementById("confidence-ring"),
 	formFeedback: document.getElementById("form-feedback"),
 	instructions: document.getElementById("instructions"),
 	sessionSummary: document.getElementById("sessionSummary"),
@@ -297,6 +298,7 @@ export function renderResetState() {
 	elements.timer.textContent = "00:00";
 	elements.confidenceValue.textContent = "--";
 	elements.confidenceValue.className = "confidence-value";
+	updateConfidenceRing(0);
 	renderFeedbackPlaceholder();
 }
 
@@ -314,4 +316,19 @@ export function syncCameraPreferenceUI() {
 		value = "front";
 	}
 	elements.cameraPreferenceSelect.value = value;
+}
+
+export function updateConfidenceRing(percent) {
+	const clamped = Math.max(0, Math.min(100, percent));
+	const dashArray = `${clamped} ${100 - clamped}`;
+	if (elements.confidenceRing) {
+		elements.confidenceRing.style.setProperty(
+			"--confidence-progress",
+			clamped
+		);
+		elements.confidenceRing.style.setProperty(
+			"--confidence-dash",
+			dashArray
+		);
+	}
 }

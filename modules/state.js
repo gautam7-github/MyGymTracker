@@ -38,6 +38,7 @@ export const state = {
 	isSwitchingCamera: false,
 	pendingCameraChange: null,
 	moveNetDetector: null,
+	moveNetInitPromise: null,
 	moveNetFrameInterval: MOVENET_FRAME_INTERVAL,
 	moveNetFrameCountdown: 0,
 	moveNetLastRun: 0,
@@ -91,6 +92,7 @@ export function resetStateValues() {
 	state.lastFusedLandmarks = [];
 	state.fusedLandmarks = [];
 	state.moveNetFrameCountdown = 0;
+	state.moveNetInitPromise = null;
 	resetVisibilityTracking();
 }
 
@@ -106,6 +108,7 @@ export function beginSessionMetrics() {
 	state.latestMoveNetKeypoints = null;
 	state.lastFusedLandmarks = [];
 	state.fusedLandmarks = [];
+	state.moveNetInitPromise = null;
 	resetVisibilityTracking();
 }
 

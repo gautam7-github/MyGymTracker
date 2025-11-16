@@ -17,6 +17,7 @@ import {
 	resetStateValues,
 	state,
 } from "./modules/state.js";
+import { preloadMoveNetDetector } from "./modules/movenet.js";
 import {
 	elements,
 	renderResetState,
@@ -38,6 +39,7 @@ function initializeUiState() {
 	updateExercise();
 	renderResetState();
 	updateStatus("ready", "Camera idle");
+	preloadMoveNetDetector().catch(() => {});
 }
 
 async function handleStartCamera() {

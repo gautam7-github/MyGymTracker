@@ -15,15 +15,12 @@ async function prepareBackend() {
 	await window.tf.ready();
 }
 
-export async function ensureMoveNetDetector() {
-	if (state.moveNetDetector) {
-		return state.moveNetDetector;
-	}
+async function loadMoveNetDetector() {
 	if (!window.poseDetection) {
 		throw new Error("PoseDetection library not available.");
 	}
 	await prepareBackend();
-	state.moveNetDetector = await window.poseDetection.createDetector(
+	return window.poseDetection.createDetector(
 		window.poseDetection.SupportedModels.MoveNet,
 		{
 			modelType:
@@ -31,12 +28,33 @@ export async function ensureMoveNetDetector() {
 			enableSmoothing: true,
 		}
 	);
-	return state.moveNetDetector;
+}
+
+export function preloadMoveNetDetector() {
+	if (state.moveNetDetector) {
+		return Promise.resolve(state.moveNetDetector);
+	}
+	if (!state.moveNetInitPromise) {
+		state.moveNetInitPromise = loadMoveNetDetector()
+			.then((detector) => {
+				state.moveNetDetector = detector;
+				return detector;
+			})
+			.catch((error) => {
+				console.error("MoveNet preload failed:", error);
+				state.moveNetInitPromise = null;
+				throw error;
+			});
+	}
+	return state.moveNetInitPromise;
 }
 
 export async function estimateMoveNet(video) {
-	const detector = await ensureMoveNetDetector();
-	return detector.estimatePoses(video, {
+	if (!state.moveNetDetector) {
+		preloadMoveNetDetector();
+		return null;
+	}
+	return state.moveNetDetector.estimatePoses(video, {
 		maxPoses: 1,
 		flipHorizontal: false,
 	});

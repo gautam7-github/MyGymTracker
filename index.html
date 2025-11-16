@@ -1,172 +1,354 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Gymnasium Pose Tracker</title>
-  <link rel="stylesheet" href="styles.css" />
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>AI Gymnasium Pose Tracker</title>
+		<link rel="stylesheet" href="styles.css" />
+	</head>
+	<body>
+		<div class="app-container">
+			<header>
+				<div class="header-shell">
+					<div class="brand" aria-label="AI Gymnasium">
+						<img
+							src="assets/13cbf82d-5216-4174-add2-889c3448f2ce.png"
+							alt=""
+							role="presentation"
+							loading="lazy"
+						/>
+						<h1>AI Gymnasium</h1>
+					</div>
+					<div
+						class="header-controls"
+						role="form"
+						aria-label="Exercise session controls"
+					>
+						<label class="control-inline">
+							<span class="visually-hidden">Exercise</span>
+							<select
+								id="exercise-select"
+								aria-label="Choose exercise"
+							>
+								<option value="bicep_curl">Bicep curl</option>
+								<option value="shoulder_press">
+									Shoulder press
+								</option>
+								<option value="squat">Squat</option>
+								<option value="pushup">Push-up</option>
+								<option value="pullup">Pull-up</option>
+								<option value="lunge">Lunge</option>
+								<option value="deadlift">Deadlift</option>
+								<option value="plank">Plank hold</option>
+							</select>
+						</label>
+						<div class="header-actions">
+							<label
+								class="camera-toggle"
+								aria-label="Use back camera"
+							>
+								<input type="checkbox" id="rear-camera-toggle" />
+								<span>Back camera</span>
+							</label>
+							<button
+								type="button"
+								class="secondary camera-options-btn"
+								id="cameraOptionsBtn"
+								aria-haspopup="dialog"
+								aria-controls="cameraSheet"
+							>
+								Camera options
+							</button>
+						</div>
+						<div class="action-bar" aria-label="Session actions">
+							<button
+								id="camera-btn"
+								class="primary"
+								type="button"
+								aria-label="Start the camera session"
+							>
+								Start
+							</button>
+							<button
+								id="stop-btn"
+								class="secondary"
+								type="button"
+								disabled
+								aria-label="Stop the camera session"
+							>
+								Stop
+							</button>
+							<button
+								id="pause-btn"
+								class="secondary"
+								type="button"
+								disabled
+								aria-label="Pause or resume tracking"
+							>
+								Pause
+							</button>
+							<button
+								id="reset-btn"
+								class="primary"
+								type="button"
+								aria-label="Reset repetitions and timer"
+							>
+								Reset
+							</button>
+						</div>
+					</div>
+				</div>
+				<div class="camera-sheet" id="cameraSheet" aria-hidden="true">
+					<div
+						class="camera-sheet__content"
+						role="dialog"
+						aria-modal="true"
+						aria-label="Camera options"
+						tabindex="-1"
+					>
+						<div class="camera-sheet__header">
+							<h2>Camera options</h2>
+							<button
+								type="button"
+								class="sheet-close"
+								id="closeCameraSheet"
+								aria-label="Close camera options"
+							>
+								Close
+							</button>
+						</div>
+						<div class="sheet-section">
+							<label for="cameraPreference">Preferred view</label>
+							<select id="cameraPreference">
+								<option value="auto">
+									Auto (best available)
+								</option>
+								<option value="back">Back camera</option>
+								<option value="front">Front camera</option>
+							</select>
+						</div>
+						<div class="sheet-section">
+							<p>Detected cameras</p>
+							<div
+								id="cameraDeviceList"
+								class="camera-device-list"
+							>
+								<p class="placeholder-text">
+									Detecting cameras…
+								</p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</header>
 
-</head>
-<body>
-  <div class="app-container">
-    <header>
-      <div class="header-row" role="form" aria-label="Exercise session controls">
-        <h1>AI Gymnasium</h1>
-        <label class="control-inline">
-          <span class="visually-hidden">Exercise</span>
-          <select id="exercise-select" aria-label="Choose exercise">
-            <option value="bicep_curl">Bicep curl</option>
-            <option value="shoulder_press">Shoulder press</option>
-            <option value="squat">Squat</option>
-            <option value="pushup">Push-up</option>
-            <option value="pullup">Pull-up</option>
-            <option value="lunge">Lunge</option>
-            <option value="deadlift">Deadlift</option>
-            <option value="plank">Plank hold</option>
-          </select>
-        </label>
-        <label class="camera-toggle" aria-label="Use back camera">
-          <input type="checkbox" id="rear-camera-toggle" />
-          <span>Back camera</span>
-        </label>
-        <button type="button" class="secondary camera-options-btn" id="cameraOptionsBtn" aria-haspopup="dialog" aria-controls="cameraSheet">
-          Camera options
-        </button>
-        <div class="action-bar" aria-label="Session actions">
-          <button id="camera-btn" type="button" aria-label="Start the camera session">Start</button>
-          <button id="stop-btn" class="secondary" type="button" disabled aria-label="Stop the camera session">Stop</button>
-          <button id="pause-btn" class="secondary" type="button" disabled aria-label="Pause or resume tracking">Pause</button>
-          <button id="reset-btn" class="secondary" type="button" aria-label="Reset repetitions and timer">Reset</button>
-        </div>
-      </div>
-      <div class="camera-sheet" id="cameraSheet" aria-hidden="true">
-        <div class="camera-sheet__content" role="dialog" aria-modal="true" aria-label="Camera options" tabindex="-1">
-          <div class="camera-sheet__header">
-            <h2>Camera options</h2>
-            <button type="button" class="sheet-close" id="closeCameraSheet" aria-label="Close camera options">Close</button>
-          </div>
-          <div class="sheet-section">
-            <label for="cameraPreference">Preferred view</label>
-            <select id="cameraPreference">
-              <option value="auto">Auto (best available)</option>
-              <option value="back">Back camera</option>
-              <option value="front">Front camera</option>
-            </select>
-          </div>
-          <div class="sheet-section">
-            <p>Detected cameras</p>
-            <div id="cameraDeviceList" class="camera-device-list">
-              <p class="placeholder-text">Detecting cameras…</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </header>
+			<main>
+				<section
+					class="video-section"
+					aria-label="Video feed and status"
+				>
+					<div class="video-header" role="status" aria-live="polite">
+						<div class="status-indicator">
+							<span class="status-dot" id="status-dot"></span>
+							<span
+								class="status-text"
+								id="status-text"
+								aria-live="polite"
+								>Camera idle</span
+							>
+						</div>
+						<div class="fps-counter">
+							<span class="fps-label">Frame rate</span>
+							<span
+								class="fps-value"
+								id="fps-value"
+								aria-live="polite"
+								>0</span
+							>
+						</div>
+					</div>
+					<div class="video-container" id="video-container">
+						<svg
+							class="confidence-ring"
+							id="confidence-ring"
+							viewBox="0 0 120 120"
+							role="img"
+							aria-label="Tracking confidence"
+						>
+							<circle class="ring-bg" cx="60" cy="60" r="58" />
+							<circle
+								class="ring-progress"
+								cx="60"
+								cy="60"
+								r="58"
+							/>
+						</svg>
+						<div class="status-message" id="status-message">
+							<p>
+								Choose an exercise and tap "Start camera" to
+								begin.
+							</p>
+						</div>
+					</div>
+					<div
+						class="progress-bar"
+						id="progress-bar"
+						style="display: none"
+						role="status"
+						aria-live="polite"
+					>
+						<div class="progress-fill" id="progress-fill"></div>
+						<div class="progress-text" id="progress-text">
+							Loading model…
+						</div>
+					</div>
+				</section>
 
-    <main>
-      <section class="video-section" aria-label="Video feed and status">
-        <div class="video-header" role="status" aria-live="polite">
-          <div class="status-indicator">
-            <span class="status-dot" id="status-dot"></span>
-            <span class="status-text" id="status-text" aria-live="polite">Camera idle</span>
-          </div>
-          <div class="fps-counter">
-            <span class="fps-label">Frame rate</span>
-            <span class="fps-value" id="fps-value" aria-live="polite">0</span>
-          </div>
-        </div>
-        <div class="video-container" id="video-container">
-          <div class="status-message" id="status-message">
-            <p>Choose an exercise and tap "Start camera" to begin.</p>
-          </div>
-        </div>
-        <div class="progress-bar" id="progress-bar" style="display: none;" role="status" aria-live="polite">
-          <div class="progress-fill" id="progress-fill"></div>
-          <div class="progress-text" id="progress-text">Loading model…</div>
-        </div>
-      </section>
+				<aside class="sidebar" aria-label="Session stats">
+					<div
+						class="sidebar-section session-summary"
+						id="sessionSummary"
+					>
+						<h2>Last session</h2>
+						<p class="placeholder-text">No session recorded yet.</p>
+					</div>
 
-      <aside class="sidebar" aria-label="Session stats">
-        <div class="sidebar-section session-summary" id="sessionSummary">
-          <h2>Last session</h2>
-          <p class="placeholder-text">No session recorded yet.</p>
-        </div>
+					<div class="sidebar-section rep-section">
+						<span class="rep-label">Reps</span>
+						<span
+							class="rep-count numeric"
+							id="rep-count"
+							aria-live="polite"
+							>0</span
+						>
+					</div>
 
-        <div class="sidebar-section rep-section">
-          <span class="rep-label">Reps</span>
-          <span class="rep-count numeric" id="rep-count" aria-live="polite">0</span>
-        </div>
+					<div
+						class="sidebar-section angle-section"
+						aria-label="Angle tracking"
+					>
+						<div class="angle-row">
+							<span class="angle-name">Primary</span>
+							<span
+								class="angle-value numeric"
+								id="primary-angle"
+								aria-live="polite"
+								>-</span
+							>
+						</div>
+						<div class="angle-row">
+							<span class="angle-name">Smoothed</span>
+							<span
+								class="angle-value numeric"
+								id="smoothed-angle"
+								aria-live="polite"
+								>-</span
+							>
+						</div>
+					</div>
 
-        <div class="sidebar-section angle-section" aria-label="Angle tracking">
-          <div class="angle-row">
-            <span class="angle-name">Primary</span>
-            <span class="angle-value numeric" id="primary-angle" aria-live="polite">-</span>
-          </div>
-          <div class="angle-row">
-            <span class="angle-name">Smoothed</span>
-            <span class="angle-value numeric" id="smoothed-angle" aria-live="polite">-</span>
-          </div>
-        </div>
+					<div
+						class="sidebar-section status-grid"
+						aria-label="Session metrics"
+					>
+						<div class="status-item">
+							<span class="status-label">Stage</span>
+							<span
+								class="status-value"
+								id="stage"
+								aria-live="polite"
+								>Waiting</span
+							>
+						</div>
+						<div class="status-item">
+							<span class="status-label">Time</span>
+							<span
+								class="status-value numeric"
+								id="timer"
+								aria-live="polite"
+								>00:00</span
+							>
+						</div>
+						<div class="status-item">
+							<span class="status-label">Quality</span>
+							<span
+								class="status-value"
+								id="confidence-value"
+								aria-live="polite"
+								>-</span
+							>
+						</div>
+					</div>
 
-        <div class="sidebar-section status-grid" aria-label="Session metrics">
-          <div class="status-item">
-            <span class="status-label">Stage</span>
-            <span class="status-value" id="stage" aria-live="polite">Waiting</span>
-          </div>
-          <div class="status-item">
-            <span class="status-label">Time</span>
-            <span class="status-value numeric" id="timer" aria-live="polite">00:00</span>
-          </div>
-          <div class="status-item">
-            <span class="status-label">Quality</span>
-            <span class="status-value" id="confidence-value" aria-live="polite">-</span>
-          </div>
-        </div>
+					<div class="sidebar-section feedback-section">
+						<h2>Form feedback</h2>
+						<div
+							class="form-feedback"
+							id="form-feedback"
+							aria-live="polite"
+						>
+							<p class="placeholder-text">
+								Start exercising to see feedback.
+							</p>
+						</div>
+					</div>
 
-        <div class="sidebar-section feedback-section">
-          <h2>Form feedback</h2>
-          <div class="form-feedback" id="form-feedback" aria-live="polite">
-            <p class="placeholder-text">Start exercising to see feedback.</p>
-          </div>
-        </div>
+					<div class="sidebar-section instructions">
+						<h2>Instructions</h2>
+						<div id="instructions" aria-live="polite">
+							<p>
+								Keep your back straight and curl the weight to
+								your shoulder. Lower with control.
+							</p>
+						</div>
+					</div>
 
-        <div class="sidebar-section instructions">
-          <h2>Instructions</h2>
-          <div id="instructions" aria-live="polite">
-            <p>Keep your back straight and curl the weight to your shoulder. Lower with control.</p>
-          </div>
-        </div>
+					<div
+						class="sidebar-section debug-panel"
+						id="debug-panel"
+						style="display: none"
+					>
+						<h2>Debug info</h2>
+						<div class="debug-grid">
+							<div>
+								<span class="angle-name">Frame Timestamp</span>
+								<span
+									class="angle-value numeric"
+									id="debug-timestamp"
+									>0</span
+								>
+							</div>
+							<div>
+								<span class="angle-name">Timestamp Delta</span>
+								<span
+									class="angle-value numeric"
+									id="debug-delta"
+									>0ms</span
+								>
+							</div>
+							<div>
+								<span class="angle-name">Timestamp Errors</span>
+								<span
+									class="angle-value numeric"
+									id="debug-errors"
+									>0</span
+								>
+							</div>
+						</div>
+					</div>
+				</aside>
+			</main>
+		</div>
 
-        <div class="sidebar-section debug-panel" id="debug-panel" style="display: none;">
-          <h2>Debug info</h2>
-          <div class="debug-grid">
-            <div>
-              <span class="angle-name">Frame Timestamp</span>
-              <span class="angle-value numeric" id="debug-timestamp">0</span>
-            </div>
-            <div>
-              <span class="angle-name">Timestamp Delta</span>
-              <span class="angle-value numeric" id="debug-delta">0ms</span>
-            </div>
-            <div>
-              <span class="angle-name">Timestamp Errors</span>
-              <span class="angle-value numeric" id="debug-errors">0</span>
-            </div>
-          </div>
-        </div>
-      </aside>
-    </main>
-  </div>
-
-  <script type="importmap">
-    {
-      "imports": {
-        "@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.mjs"
-      }
-    }
-  </script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.19.0/dist/tf.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection@3.4.0/dist/pose-detection.min.js"></script>
-  <script type="module" src="app.js"></script>
-</body>
+		<script type="importmap">
+			{
+				"imports": {
+					"@mediapipe/tasks-vision": "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/vision_bundle.mjs"
+				}
+			}
+		</script>
+		<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.min.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/pose-detection/dist/pose-detection.min.js"></script>
+		<script type="module" src="app.js"></script>
+	</body>
 </html>
