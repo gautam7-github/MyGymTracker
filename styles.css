@@ -209,19 +209,6 @@ select:focus-visible,
   z-index: 100;
 }
 
-.header-controls .action-bar {
-  position: static;
-  border: none;
-  padding: 0;
-  background: transparent;
-  width: auto;
-  gap: var(--space-12);
-}
-
-.header-controls .action-bar button {
-  min-width: 90px;
-}
-
 .action-bar button {
   flex: 1 0 0;
   min-height: 44px;
@@ -674,5 +661,60 @@ main {
 
   .video-container {
     min-height: calc((100vh - 96px) * 0.65);
+  }
+}
+
+@media (max-width: 768px) {
+  header {
+    padding: var(--space-16) var(--space-12);
+  }
+
+  .header-shell {
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    background: transparent;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-8);
+  }
+
+  .brand {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .header-controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    background: transparent;
+    border-radius: 0;
+    padding: 0;
+    gap: var(--space-8);
+  }
+
+  .control-inline {
+    width: 100%;
+  }
+
+  .control-inline select {
+    width: 100%;
+  }
+
+  .header-actions {
+    width: 100%;
+    flex-direction: column;
+    gap: var(--space-8);
+  }
+
+  .camera-toggle,
+  .camera-options-btn {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  main {
+    padding: var(--space-16);
   }
 }
