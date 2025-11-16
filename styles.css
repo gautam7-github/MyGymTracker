@@ -356,7 +356,7 @@ main {
 .video-container {
   flex: 1;
   border-radius: 20px;
-  background: #f8f8fa;
+  background: #f5f5f7;
   min-height: 320px;
   display: flex;
   align-items: center;
@@ -787,6 +787,24 @@ main {
 
   .video-container {
     min-height: calc((100vh - 96px) * 0.65);
+  }
+}
+
+@media (min-width: 600px) and (max-width: 899px) {
+  main {
+    display: grid;
+    grid-template-columns: minmax(0, 0.7fr) minmax(260px, 0.3fr);
+    gap: var(--space-16);
+    flex-direction: row;
+    padding-bottom: calc(var(--space-16) + var(--action-bar-height));
+  }
+
+  .sidebar-section {
+    box-shadow: 0 12px 32px rgba(15, 15, 20, 0.06);
+  }
+
+  .video-section {
+    box-shadow: 0 18px 45px rgba(13, 13, 18, 0.07);
   }
 }
 
