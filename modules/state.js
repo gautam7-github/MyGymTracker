@@ -25,6 +25,7 @@ export const state = {
 	fps: 0,
 	lastFpsUpdate: 0,
 	fpsFrameCount: 0,
+	lastLandmarkVelocities: [],
 	visibilityWarnings: {},
 	worldLandmarks: null,
 	timestampErrors: 0,
@@ -45,6 +46,11 @@ export const state = {
 	latestMoveNetKeypoints: null,
 	lastFusedLandmarks: [],
 	fusedLandmarks: [],
+	regionalConfidence: {
+		upper: { percent: 0, lastWarning: 0 },
+		core: { percent: 0, lastWarning: 0 },
+		lower: { percent: 0, lastWarning: 0 },
+	},
 	sessionMetrics: {
 		angleSum: 0,
 		confidenceSum: 0,
@@ -59,6 +65,11 @@ export const state = {
 	visibilityHistory: new Map(),
 	visibilityLossFrames: 0,
 	lastSideSwitchNotice: 0,
+	sideUsage: {
+		leftCount: 0,
+		rightCount: 0,
+		lastAnnouncement: 0,
+	},
 };
 
 export function resetVisibilityTracking() {
@@ -93,6 +104,21 @@ export function resetStateValues() {
 	state.fusedLandmarks = [];
 	state.moveNetFrameCountdown = 0;
 	state.moveNetInitPromise = null;
+	state.regionalConfidence = {
+		upper: { percent: 0, lastWarning: 0 },
+		core: { percent: 0, lastWarning: 0 },
+		lower: { percent: 0, lastWarning: 0 },
+	};
+	state.sideUsage = {
+		leftCount: 0,
+		rightCount: 0,
+		lastAnnouncement: 0,
+	};
+	state.sideUsage = {
+		leftCount: 0,
+		rightCount: 0,
+		lastAnnouncement: 0,
+	};
 	resetVisibilityTracking();
 }
 
@@ -109,6 +135,17 @@ export function beginSessionMetrics() {
 	state.lastFusedLandmarks = [];
 	state.fusedLandmarks = [];
 	state.moveNetInitPromise = null;
+	state.regionalConfidence = {
+		upper: { percent: 0, lastWarning: 0 },
+		core: { percent: 0, lastWarning: 0 },
+		lower: { percent: 0, lastWarning: 0 },
+	};
+	state.sideUsage = {
+		leftCount: 0,
+		rightCount: 0,
+		lastAnnouncement: 0,
+	};
+	state.lastLandmarkVelocities = [];
 	resetVisibilityTracking();
 }
 

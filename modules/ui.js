@@ -35,6 +35,9 @@ export const elements = {
 	primaryAngle: document.getElementById("primary-angle"),
 	smoothedAngle: document.getElementById("smoothed-angle"),
 	confidenceValue: document.getElementById("confidence-value"),
+	confidenceUpper: document.getElementById("confidence-upper"),
+	confidenceCore: document.getElementById("confidence-core"),
+	confidenceLower: document.getElementById("confidence-lower"),
 	confidenceRing: document.getElementById("confidence-ring"),
 	formFeedback: document.getElementById("form-feedback"),
 	instructions: document.getElementById("instructions"),
@@ -298,6 +301,11 @@ export function renderResetState() {
 	elements.timer.textContent = "00:00";
 	elements.confidenceValue.textContent = "--";
 	elements.confidenceValue.className = "confidence-value";
+	if (elements.confidenceUpper)
+		elements.confidenceUpper.textContent = "--";
+	if (elements.confidenceCore) elements.confidenceCore.textContent = "--";
+	if (elements.confidenceLower)
+		elements.confidenceLower.textContent = "--";
 	updateConfidenceRing(0);
 	renderFeedbackPlaceholder();
 }
@@ -330,5 +338,18 @@ export function updateConfidenceRing(percent) {
 			"--confidence-dash",
 			dashArray
 		);
+	}
+}
+
+export function updateRegionalConfidence(values = {}) {
+	const { upper = 0, core = 0, lower = 0 } = values;
+	if (elements.confidenceUpper) {
+		elements.confidenceUpper.textContent = `${Math.round(upper)}%`;
+	}
+	if (elements.confidenceCore) {
+		elements.confidenceCore.textContent = `${Math.round(core)}%`;
+	}
+	if (elements.confidenceLower) {
+		elements.confidenceLower.textContent = `${Math.round(lower)}%`;
 	}
 }

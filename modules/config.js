@@ -208,6 +208,20 @@ export const SMOOTHING_WINDOW = 5;
 export const MOVENET_CONFIDENCE_THRESHOLD = 0.6;
 export const MOVENET_FRAME_INTERVAL = 2;
 export const FUSION_DECAY = 0.9;
+export const REGION_CONFIG = {
+	upper: {
+		name: "Upper",
+		landmarks: [11, 12, 13, 14, 15, 16],
+	},
+	core: {
+		name: "Core",
+		landmarks: [23, 24, 11, 12],
+	},
+	lower: {
+		name: "Lower",
+		landmarks: [23, 24, 25, 26, 27, 28, 31, 32],
+	},
+};
 
 export const isMobileDevice =
 	/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||

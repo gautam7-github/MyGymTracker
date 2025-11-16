@@ -10,6 +10,7 @@ import {
 	SIDE_SWITCH_NOTICE_COOLDOWN,
 	VISIBILITY_HISTORY_FRAMES,
 	VISIBILITY_WARNING_FRAMES,
+	REGION_CONFIG,
 } from "./config.js";
 import { recordSessionSample, resetStateValues, state } from "./state.js";
 import {
@@ -26,6 +27,7 @@ import {
 	updateStatus,
 	updateTimer,
 	updateConfidenceRing,
+	updateRegionalConfidence,
 } from "./ui.js";
 import { fuseLandmarks } from "./fusion.js";
 import { estimateMoveNet } from "./movenet.js";
@@ -211,6 +213,43 @@ function announceSideSwitch(indices) {
 	);
 }
 
+function updateSideUsage(indices = []) {
+	const allLeft = indices.every((idx) => idx % 2 === 1);
+	const allRight = indices.every((idx) => idx % 2 === 0);
+	if (!allLeft && !allRight) return;
+
+	if (allLeft) {
+		state.sideUsage.leftCount++;
+		state.sideUsage.rightCount = Math.max(state.sideUsage.rightCount - 1, 0);
+	} else {
+		state.sideUsage.rightCount++;
+		state.sideUsage.leftCount = Math.max(state.sideUsage.leftCount - 1, 0);
+	}
+
+	const total =
+		state.sideUsage.leftCount + state.sideUsage.rightCount || 1;
+	const dominant =
+		state.sideUsage.leftCount > state.sideUsage.rightCount
+			? "left"
+			: "right";
+	const ratio =
+		Math.max(state.sideUsage.leftCount, state.sideUsage.rightCount) /
+		total;
+	if (ratio >= 0.85) {
+		const now = Date.now();
+		if (
+			!state.sideUsage.lastAnnouncement ||
+			now - state.sideUsage.lastAnnouncement > 8000
+		) {
+			state.sideUsage.lastAnnouncement = now;
+			updateFeedback(
+				`Mostly tracking your ${dominant} side — adjust position if you want more balance.`,
+				"info"
+			);
+		}
+	}
+}
+
 function handleVisibilityInterruption(reason = "landmarks") {
 	state.visibilityLossFrames = (state.visibilityLossFrames || 0) + 1;
 	const statusText =
@@ -278,7 +317,7 @@ function ensureRepTracker(initialAngle, exercise, thresholds) {
 		} else if (initialAngle > thresholds.bottom && initialAngle < thresholds.top) {
 			phase = "mid";
 		}
-		state.repTracker = {
+	state.repTracker = {
 			phase,
 			thresholds,
 			transitionFrames: 0,
@@ -289,6 +328,7 @@ function ensureRepTracker(initialAngle, exercise, thresholds) {
 			lastRepTime: 0,
 			visibilityHoldFrames: 0,
 			lastLandmarkKey: state.activeLandmarkKey || null,
+			motionWarnings: 0,
 		};
 		const stageLabel =
 			phase === "bottom"
@@ -363,6 +403,26 @@ function countReps(angle, exercise, landmarks, confidencePercent) {
 
 	const atBottom = angle <= thresholds.bottom;
 	const atTop = angle >= thresholds.top;
+
+	const motionSpike =
+		state.lastLandmarkVelocities.length &&
+		state.lastLandmarkVelocities.some((v) => v > 0.25);
+	if (motionSpike) {
+		tracker.motionWarnings = (tracker.motionWarnings || 0) + 1;
+		if (tracker.motionWarnings > 4) {
+			updateFeedback(
+				"Movement is too jerky to count accurately—steady up for a moment.",
+				"warning"
+			);
+			tracker.motionWarnings = 0;
+			return;
+		}
+	} else {
+		tracker.motionWarnings = Math.max(
+			0,
+			(tracker.motionWarnings || 0) - 1
+		);
+	}
 
 	if (tracker.phase === "top") {
 		if (atBottom) {
@@ -659,6 +719,7 @@ function analyzeExercise(landmarks, worldLandmarks) {
 				announceSideSwitch(indices);
 			}
 			state.repTracker.lastLandmarkKey = key;
+			updateSideUsage(indices);
 		}
 	}
 
@@ -676,6 +737,11 @@ function analyzeExercise(landmarks, worldLandmarks) {
 		elements.confidenceValue.classList.add("low");
 	}
 	updateConfidenceRing(confidencePercent);
+	const regionalConfidence = calculateRegionalConfidence(landmarks);
+	updateRegionalConfidence(regionalConfidence);
+	handleRegionalWarnings(regionalConfidence);
+	updateRegionalConfidence(calculateRegionalConfidence(landmarks));
+	updateRegionalConfidence(calculateRegionalConfidence(landmarks));
 
 	state.currentAngle = angle;
 	state.smoothedAngle = smoothAngle(angle);
@@ -699,6 +765,74 @@ function analyzeExercise(landmarks, worldLandmarks) {
 	}
 
 	provideFormFeedback(state.smoothedAngle, exerciseConfig, landmarks);
+}
+
+function calculateRegionalConfidence(landmarks) {
+	const result = {};
+	for (const [key, config] of Object.entries(REGION_CONFIG)) {
+		const scores = config.landmarks
+			.map((idx) => landmarks[idx]?.visibility || 0)
+			.filter((v) => v > 0);
+		const percent =
+			scores.length > 0
+				? (scores.reduce((sum, v) => sum + v, 0) / scores.length) * 100
+				: 0;
+		result[key] = percent;
+		state.regionalConfidence[key].percent = percent;
+	}
+	return result;
+}
+
+function handleRegionalWarnings(regionalConfidence) {
+	const now = Date.now();
+	for (const [key, percent] of Object.entries(regionalConfidence)) {
+		if (percent < MIN_VISIBILITY * 100) {
+			const record = state.regionalConfidence[key];
+			if (!record.lastWarning || now - record.lastWarning > 5000) {
+				record.lastWarning = now;
+				updateFeedback(
+					`${REGION_CONFIG[key].name} visibility low — adjust your position.`,
+					"warning"
+				);
+			}
+		}
+	}
+}
+
+function monitorMotionConsistency(landmarks) {
+	if (!state.lastFusedLandmarks || !state.lastFusedLandmarks.length) {
+		state.lastFusedLandmarks = landmarks.map((point) =>
+			point ? { ...point } : null
+		);
+		return;
+	}
+	const velocities = [];
+	for (let i = 0; i < landmarks.length; i++) {
+		const current = landmarks[i];
+		const previous = state.lastFusedLandmarks[i];
+		if (!current || !previous) {
+			velocities[i] = 0;
+			continue;
+		}
+		const dx = current.x - previous.x;
+		const dy = current.y - previous.y;
+		const velocity = Math.sqrt(dx * dx + dy * dy);
+		velocities[i] = velocity;
+	}
+	state.lastLandmarkVelocities = velocities;
+
+	const averageVelocity =
+		velocities.reduce((sum, v) => sum + v, 0) / velocities.length;
+	if (averageVelocity > 0.05) {
+		updateFeedback(
+			"Tracking is detecting sudden motion—steady the camera or pause briefly.",
+			"warning"
+		);
+	}
+
+	state.lastFusedLandmarks = landmarks.map((point) =>
+		point ? { ...point } : null
+	);
 }
 
 export async function initializePoseLandmarker() {
@@ -960,6 +1094,7 @@ export async function processPose() {
 					state.canvas.width,
 					state.canvas.height
 				);
+				monitorMotionConsistency(fusedLandmarks);
 				drawPoseLandmarks(fusedLandmarks);
 				analyzeExercise(fusedLandmarks, state.worldLandmarks);
 				updateFPS();
