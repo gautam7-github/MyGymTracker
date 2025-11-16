@@ -11,11 +11,7 @@ import {
 	VISIBILITY_HISTORY_FRAMES,
 	VISIBILITY_WARNING_FRAMES,
 } from "./config.js";
-import {
-	recordSessionSample,
-	resetStateValues,
-	state,
-} from "./state.js";
+import { recordSessionSample, resetStateValues, state } from "./state.js";
 import {
 	displayFeedbackMessages,
 	elements,
@@ -30,6 +26,8 @@ import {
 	updateStatus,
 	updateTimer,
 } from "./ui.js";
+import { fuseLandmarks } from "./fusion.js";
+import { estimateMoveNet } from "./movenet.js";
 
 function calculateAngle3D(pointA = {}, pointB = {}, pointC = {}) {
 	const a = {
@@ -833,7 +831,42 @@ function drawPoseLandmarks(landmarks) {
 	}
 }
 
-export function processPose() {
+function shouldRunMoveNetThisFrame() {
+	if (state.moveNetFrameInterval <= 1) {
+		return true;
+	}
+	if (state.moveNetFrameCountdown <= 0) {
+		state.moveNetFrameCountdown = Math.max(
+			1,
+			state.moveNetFrameInterval
+		);
+		state.moveNetFrameCountdown -= 1;
+		return true;
+	}
+	state.moveNetFrameCountdown -= 1;
+	return false;
+}
+
+async function getMoveNetKeypoints() {
+	if (!state.webcam) {
+		return state.latestMoveNetKeypoints;
+	}
+	if (!shouldRunMoveNetThisFrame()) {
+		return state.latestMoveNetKeypoints;
+	}
+	try {
+		const poses = await estimateMoveNet(state.webcam);
+		const keypoints = poses?.[0]?.keypoints;
+		if (keypoints?.length) {
+			state.latestMoveNetKeypoints = keypoints;
+		}
+	} catch (error) {
+		console.warn("MoveNet estimation failed:", error);
+	}
+	return state.latestMoveNetKeypoints;
+}
+
+export async function processPose() {
 	if (
 		!state.isRunning ||
 		state.isPaused ||
@@ -844,7 +877,7 @@ export function processPose() {
 	}
 
 	if (state.webcam.readyState < 2) {
-		state.animationFrameId = requestAnimationFrame(processPose);
+		state.animationFrameId = requestAnimationFrame(() => processPose());
 		return;
 	}
 
@@ -881,6 +914,7 @@ export function processPose() {
 		}
 
 		try {
+			const moveNetPromise = getMoveNetKeypoints();
 			const results = state.poseLandmarker.detectForVideo(
 				state.webcam,
 				state.frameTimestamp
@@ -888,6 +922,8 @@ export function processPose() {
 
 			if (results.worldLandmarks && results.worldLandmarks.length > 0) {
 				state.worldLandmarks = results.worldLandmarks[0];
+			} else {
+				state.worldLandmarks = null;
 			}
 
 			if (state.debugMode && elements.debugTimestamp) {
@@ -897,16 +933,33 @@ export function processPose() {
 			}
 			state.lastTimestamp = state.frameTimestamp;
 
-			if (results?.landmarks?.length) {
-				const landmarks = results.landmarks[0];
+			const moveNetKeypoints = await moveNetPromise;
+			const mediapipeLandmarks = results?.landmarks?.[0] || [];
+
+			const fusedLandmarks = fuseLandmarks({
+				mediapipeLandmarks,
+				moveNetKeypoints,
+				previousLandmarks: state.fusedLandmarks,
+				videoWidth: state.webcam.videoWidth || 1,
+				videoHeight: state.webcam.videoHeight || 1,
+			});
+
+			state.lastFusedLandmarks = state.fusedLandmarks;
+			state.fusedLandmarks = fusedLandmarks;
+
+			const hasLandmarks = fusedLandmarks.some(
+				(point) => point && point.visibility >= MIN_VISIBILITY
+			);
+
+			if (hasLandmarks) {
 				state.ctx.clearRect(
 					0,
 					0,
 					state.canvas.width,
 					state.canvas.height
 				);
-				drawPoseLandmarks(landmarks);
-				analyzeExercise(landmarks, state.worldLandmarks);
+				drawPoseLandmarks(fusedLandmarks);
+				analyzeExercise(fusedLandmarks, state.worldLandmarks);
 				updateFPS();
 			} else {
 				updateFeedback(
@@ -961,7 +1014,7 @@ export function processPose() {
 	}
 
 	updateTimer();
-	state.animationFrameId = requestAnimationFrame(processPose);
+	state.animationFrameId = requestAnimationFrame(() => processPose());
 }
 
 export function updateExercise() {

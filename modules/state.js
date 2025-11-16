@@ -1,4 +1,4 @@
-import { isMobileDevice } from "./config.js";
+import { isMobileDevice, MOVENET_FRAME_INTERVAL } from "./config.js";
 
 export const state = {
 	poseLandmarker: null,
@@ -37,6 +37,13 @@ export const state = {
 	availableCameras: [],
 	isSwitchingCamera: false,
 	pendingCameraChange: null,
+	moveNetDetector: null,
+	moveNetFrameInterval: MOVENET_FRAME_INTERVAL,
+	moveNetFrameCountdown: 0,
+	moveNetLastRun: 0,
+	latestMoveNetKeypoints: null,
+	lastFusedLandmarks: [],
+	fusedLandmarks: [],
 	sessionMetrics: {
 		angleSum: 0,
 		confidenceSum: 0,
@@ -80,6 +87,10 @@ export function resetStateValues() {
 	state.activeLandmarkSet = null;
 	state.repTracker = null;
 	state.pendingCameraChange = null;
+	state.latestMoveNetKeypoints = null;
+	state.lastFusedLandmarks = [];
+	state.fusedLandmarks = [];
+	state.moveNetFrameCountdown = 0;
 	resetVisibilityTracking();
 }
 
@@ -92,6 +103,9 @@ export function beginSessionMetrics() {
 	};
 	state.repTracker = null;
 	state.pendingCameraChange = null;
+	state.latestMoveNetKeypoints = null;
+	state.lastFusedLandmarks = [];
+	state.fusedLandmarks = [];
 	resetVisibilityTracking();
 }
 

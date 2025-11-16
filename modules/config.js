@@ -205,6 +205,9 @@ export const SIDE_SWITCH_NOTICE_COOLDOWN = 4000;
 export const DEFAULT_MIN_DURATION_MS = 300;
 export const DEFAULT_MAX_DURATION_MS = 10000;
 export const SMOOTHING_WINDOW = 5;
+export const MOVENET_CONFIDENCE_THRESHOLD = 0.6;
+export const MOVENET_FRAME_INTERVAL = 2;
+export const FUSION_DECAY = 0.9;
 
 export const isMobileDevice =
 	/Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) ||

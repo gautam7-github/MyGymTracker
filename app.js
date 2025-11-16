@@ -13,6 +13,11 @@ import {
 	updateExercise,
 } from "./modules/pose.js";
 import {
+	beginSessionMetrics,
+	resetStateValues,
+	state,
+} from "./modules/state.js";
+import {
 	elements,
 	renderResetState,
 	renderSessionSummary,
@@ -20,11 +25,6 @@ import {
 	syncCameraPreferenceUI,
 	updateStatus,
 } from "./modules/ui.js";
-import {
-	beginSessionMetrics,
-	resetStateValues,
-	state,
-} from "./modules/state.js";
 
 function initializeUiState() {
 	elements.stopBtn.disabled = true;
