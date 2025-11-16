@@ -25,6 +25,7 @@ import {
 	showLoading,
 	syncCameraPreferenceUI,
 	updateStatus,
+	setTrackingState,
 } from "./modules/ui.js";
 
 function initializeUiState() {
@@ -39,6 +40,7 @@ function initializeUiState() {
 	updateExercise();
 	renderResetState();
 	updateStatus("ready", "Camera idle");
+	setTrackingState(false);
 	preloadMoveNetDetector().catch(() => {});
 }
 

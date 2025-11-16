@@ -192,6 +192,10 @@
 								begin.
 							</p>
 						</div>
+						<div class="idle-overlay" aria-hidden="true">
+							<div class="idle-icon">📷</div>
+							<p>Camera ready — press Start when you are.</p>
+						</div>
 						<div
 							class="motion-alert"
 							id="motion-alert"
@@ -215,18 +219,22 @@
 				</section>
 
 				<aside class="sidebar" aria-label="Session stats">
-					<div
+					<details
 						class="sidebar-section session-summary"
 						id="sessionSummary"
 					>
-						<h2>Last session</h2>
-						<p class="placeholder-text">No session recorded yet.</p>
-					</div>
+						<summary>Last session</summary>
+						<div class="session-content">
+							<p class="placeholder-text">
+								No session recorded yet.
+							</p>
+						</div>
+					</details>
 
 					<div class="sidebar-section rep-section">
 						<span class="rep-label">Reps</span>
 						<span
-							class="rep-count numeric"
+							class="rep-count numeric live-metric"
 							id="rep-count"
 							aria-live="polite"
 							>0</span
@@ -240,7 +248,7 @@
 						<div class="angle-row">
 							<span class="angle-name">Primary</span>
 							<span
-								class="angle-value numeric"
+								class="angle-value numeric live-metric"
 								id="primary-angle"
 								aria-live="polite"
 								>-</span
@@ -249,7 +257,7 @@
 						<div class="angle-row">
 							<span class="angle-name">Smoothed</span>
 							<span
-								class="angle-value numeric"
+								class="angle-value numeric live-metric"
 								id="smoothed-angle"
 								aria-live="polite"
 								>-</span
@@ -264,7 +272,7 @@
 						<div class="status-item">
 							<span class="status-label">Stage</span>
 							<span
-								class="status-value"
+								class="status-value live-metric"
 								id="stage"
 								aria-live="polite"
 								>Waiting</span
@@ -273,7 +281,7 @@
 						<div class="status-item">
 							<span class="status-label">Time</span>
 							<span
-								class="status-value numeric"
+								class="status-value numeric live-metric"
 								id="timer"
 								aria-live="polite"
 								>00:00</span
@@ -282,7 +290,7 @@
 						<div class="status-item">
 							<span class="status-label">Quality</span>
 							<span
-								class="status-value"
+								class="status-value live-metric"
 								id="confidence-value"
 								aria-live="polite"
 								>-</span
@@ -291,7 +299,7 @@
 						<div class="status-item">
 							<span class="status-label">Upper</span>
 							<span
-								class="status-chip"
+								class="status-chip live-metric"
 								id="confidence-upper"
 								aria-live="polite"
 								>-</span
@@ -300,7 +308,7 @@
 						<div class="status-item">
 							<span class="status-label">Core</span>
 							<span
-								class="status-chip"
+								class="status-chip live-metric"
 								id="confidence-core"
 								aria-live="polite"
 								>-</span
@@ -309,7 +317,7 @@
 						<div class="status-item">
 							<span class="status-label">Lower</span>
 							<span
-								class="status-chip"
+								class="status-chip live-metric"
 								id="confidence-lower"
 								aria-live="polite"
 								>-</span

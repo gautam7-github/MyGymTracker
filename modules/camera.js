@@ -8,6 +8,7 @@ import {
 	updateFeedback,
 	updateStatus,
 	elements,
+	setTrackingState,
 } from "./ui.js";
 import {
 	captureCameraPreference,
@@ -314,6 +315,7 @@ export function stopWebcam() {
 	elements.videoContainer.innerHTML =
 		'<div class="status-message"><p>Camera stopped. Tap "Start camera" to resume.</p></div>';
 	updateStatus("ready", "Camera stopped");
+	setTrackingState(false);
 	elements.fpsValue.textContent = "0";
 	elements.cameraBtn.disabled = false;
 	elements.stopBtn.disabled = true;

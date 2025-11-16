@@ -81,8 +81,10 @@ export function renderSessionSummary(summary = null) {
 	if (!elements.sessionSummary) return;
 	if (!summary) {
 		elements.sessionSummary.innerHTML = `
-      <h2>Last session</h2>
-      <p class="placeholder-text">No session recorded yet.</p>
+      <summary>Last session</summary>
+      <div class="session-content">
+        <p class="placeholder-text">No session recorded yet.</p>
+      </div>
     `;
 		return;
 	}
@@ -92,7 +94,8 @@ export function renderSessionSummary(summary = null) {
 		.toString()
 		.padStart(2, "0");
 	elements.sessionSummary.innerHTML = `
-    <h2>Last session</h2>
+    <summary>Last session</summary>
+    <div class="session-content">
     <div class="summary-grid">
       <div>
         <div class="status-label">Reps</div>
@@ -114,6 +117,7 @@ export function renderSessionSummary(summary = null) {
 					avgQuality ? `${Math.round(avgQuality)}%` : "--"
 				}</div>
       </div>
+    </div>
     </div>
   `;
 }
@@ -141,6 +145,10 @@ export function renderFeedbackPlaceholder() {
 export function displayFeedbackMessages(messages, options = {}) {
 	const { replace = true, force = false } = options;
 	const now = Date.now();
+	if (state.feedbackClearTimeout) {
+		clearTimeout(state.feedbackClearTimeout);
+		state.feedbackClearTimeout = null;
+	}
 	let normalized = messages
 		.filter((msg) => msg && msg.text)
 		.map((msg) => ({
@@ -180,6 +188,17 @@ export function displayFeedbackMessages(messages, options = {}) {
 			(msg) => `<div class="feedback-item ${msg.type}">${msg.text}</div>`
 		)
 		.join("");
+
+	if (
+		state.feedbackMessages.length === 1 &&
+		state.feedbackMessages[0].type === "good"
+	) {
+		state.feedbackClearTimeout = window.setTimeout(() => {
+			state.feedbackMessages = [];
+			renderFeedbackPlaceholder();
+			state.feedbackClearTimeout = null;
+		}, 3000);
+	}
 }
 
 export function updateFeedback(text, type = "good", options = {}) {
@@ -374,4 +393,17 @@ export function hideMotionAlert() {
 	if (!elements.motionAlert || !state.motionAlertActive) return;
 	elements.motionAlert.classList.remove("active");
 	state.motionAlertActive = false;
+}
+
+export function setTrackingState(isActive) {
+	document.body.classList.toggle("tracking-active", Boolean(isActive));
+	if (elements.videoContainer) {
+		elements.videoContainer.classList.toggle(
+			"tracking-active",
+			Boolean(isActive)
+		);
+	}
+	if (!isActive) {
+		hideMotionAlert();
+	}
 }

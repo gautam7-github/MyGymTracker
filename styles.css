@@ -44,7 +44,8 @@ body {
 }
 
 header {
-  padding: 24px clamp(16px, 5vw, 48px);
+  padding: 16px clamp(16px, 5vw, 48px);
+  min-height: 56px;
   display: flex;
   justify-content: center;
   background: transparent;
@@ -53,7 +54,7 @@ header {
 .header-shell {
   width: 100%;
   max-width: 1200px;
-  padding: 16px 24px;
+  padding: 12px 18px;
   border: 1px solid var(--color-border);
   border-radius: 18px;
   background: var(--color-white);
@@ -408,6 +409,33 @@ main {
   transition: stroke-dasharray 0.2s ease;
 }
 
+.idle-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-8);
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  background: linear-gradient(
+    180deg,
+    rgba(245, 245, 247, 0.95),
+    rgba(245, 245, 247, 0.65)
+  );
+  transition: opacity 0.2s ease;
+}
+
+.idle-icon {
+  font-size: 32px;
+}
+
+.video-container.tracking-active .idle-overlay {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .motion-alert {
   position: absolute;
   left: 50%;
@@ -478,6 +506,28 @@ main {
   box-shadow: 0 18px 45px rgba(15, 15, 20, 0.07);
 }
 
+.session-summary {
+  background: #ffffff;
+}
+
+.session-summary summary {
+  font-weight: 600;
+  font-size: 16px;
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.session-summary summary::-webkit-details-marker {
+  display: none;
+}
+
+.session-content {
+  margin-top: var(--space-8);
+}
+
 .rep-section {
   background: #f5f5f7;
   display: flex;
@@ -494,7 +544,7 @@ main {
 }
 
 .rep-count {
-  font-size: 48px;
+  font-size: 64px;
   font-weight: 600;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
@@ -576,6 +626,15 @@ main {
   letter-spacing: 0.08em;
 }
 
+.live-metric {
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.tracking-active .live-metric {
+  opacity: 1;
+}
+
 .status-value {
   font-size: 18px;
   font-weight: 500;
@@ -618,8 +677,12 @@ main {
   background: #f7f7f9;
   min-height: 120px;
   overflow-y: auto;
+  display: none;
 }
 
+.tracking-active .form-feedback {
+  display: block;
+}
 .placeholder-text {
   color: var(--color-text-secondary);
   font-size: 15px;

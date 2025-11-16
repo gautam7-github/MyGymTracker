@@ -30,6 +30,7 @@ import {
 	updateRegionalConfidence,
 	showMotionAlert,
 	hideMotionAlert,
+	setTrackingState,
 } from "./ui.js";
 import { fuseLandmarks } from "./fusion.js";
 import { estimateMoveNet } from "./movenet.js";
@@ -714,6 +715,7 @@ function analyzeExercise(landmarks, worldLandmarks) {
 	state.visibilityLossFrames = 0;
 
 	updateStatus("active", "Tracking form");
+	setTrackingState(true);
 
 	if (state.repTracker) {
 		if (state.repTracker.lastLandmarkKey !== key) {

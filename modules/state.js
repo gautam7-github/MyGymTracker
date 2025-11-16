@@ -18,6 +18,7 @@ export const state = {
 	startTime: null,
 	feedbackMessages: [],
 	feedbackHistory: {},
+	feedbackClearTimeout: null,
 	bannerHistory: {},
 	animationFrameId: null,
 	frameCount: 0,
@@ -91,6 +92,10 @@ export function resetStateValues() {
 	state.stageFrameCount = 0;
 	state.feedbackMessages = [];
 	state.feedbackHistory = {};
+	if (state.feedbackClearTimeout) {
+		clearTimeout(state.feedbackClearTimeout);
+		state.feedbackClearTimeout = null;
+	}
 	state.bannerHistory = {};
 	state.startTime = state.isRunning ? Date.now() : null;
 	state.sessionMetrics.angleSum = 0;
