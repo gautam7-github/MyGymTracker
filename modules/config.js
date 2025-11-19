@@ -126,6 +126,82 @@ export const EXERCISES = {
 		instructions: "Maintain straight body line from head to heels",
 		formChecks: ["Head neutral", "Core engaged", "Hips level"],
 	},
+	lat_pulldown: {
+		name: "Lat Pulldown",
+		landmarks: [11, 13, 15],
+		downThreshold: 90,
+		upThreshold: 150,
+		downBuffer: 10,
+		upBuffer: 10,
+		minFrames: 18,
+		minRange: 50,
+		minDurationMs: 500,
+		maxDurationMs: 9000,
+		instructions:
+			"Pull the bar toward the upper chest with elbows driving down, then return with control.",
+		formChecks: [
+			"Chest lifted, no leaning back",
+			"Elbows track in front of body",
+			"Full stretch at the top",
+		],
+	},
+	one_arm_row: {
+		name: "One-arm Row",
+		landmarks: [11, 13, 15],
+		downThreshold: 150,
+		upThreshold: 80,
+		downBuffer: 10,
+		upBuffer: 10,
+		minFrames: 18,
+		minRange: 45,
+		minDurationMs: 500,
+		maxDurationMs: 8000,
+		instructions:
+			"Hinge at the hips, pull the weight toward your hip, and lower with control.",
+		formChecks: [
+			"Back flat, neck neutral",
+			"Elbow drives toward hip",
+			"No twisting through the torso",
+		],
+	},
+	db_row: {
+		name: "Dumbbell Row",
+		landmarks: [11, 13, 15],
+		downThreshold: 150,
+		upThreshold: 80,
+		downBuffer: 10,
+		upBuffer: 10,
+		minFrames: 18,
+		minRange: 45,
+		minDurationMs: 500,
+		maxDurationMs: 8000,
+		instructions:
+			"Brace your core, pull the dumbbell toward your lower ribs, and lower with control.",
+		formChecks: [
+			"Back flat, no rounding",
+			"Elbow close to body",
+			"Smooth pull and lower",
+		],
+	},
+	cable_pullover: {
+		name: "Cable Pullover",
+		landmarks: [11, 13, 15],
+		downThreshold: 80,
+		upThreshold: 150,
+		downBuffer: 10,
+		upBuffer: 10,
+		minFrames: 18,
+		minRange: 40,
+		minDurationMs: 500,
+		maxDurationMs: 8000,
+		instructions:
+			"With straight arms, sweep the cable down toward your hips, then return with a stretch.",
+		formChecks: [
+			"Ribs down, no flaring",
+			"Arms stay nearly straight",
+			"Movement comes from shoulders, not lower back",
+		],
+	},
 };
 
 export const POSE_CONNECTIONS = [
@@ -190,6 +266,22 @@ export const PROFILE_LANDMARK_SETS = {
 		[12, 14, 16],
 	],
 	pullup: [
+		[11, 13, 15],
+		[12, 14, 16],
+	],
+	lat_pulldown: [
+		[11, 13, 15],
+		[12, 14, 16],
+	],
+	one_arm_row: [
+		[11, 13, 15],
+		[12, 14, 16],
+	],
+	db_row: [
+		[11, 13, 15],
+		[12, 14, 16],
+	],
+	cable_pullover: [
 		[11, 13, 15],
 		[12, 14, 16],
 	],

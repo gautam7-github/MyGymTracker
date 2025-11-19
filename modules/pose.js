@@ -464,6 +464,8 @@ function countReps(angle, exercise, landmarks, confidencePercent) {
 				const range =
 					(tracker.currentPeak ?? angle) -
 					(tracker.currentValley ?? angle);
+				const nearRange = minRange * 0.8;
+				const nearDuration = minDuration * 0.8;
 				if (
 					cycleDuration >= minDuration &&
 					cycleDuration <= maxDuration &&
@@ -476,15 +478,29 @@ function countReps(angle, exercise, landmarks, confidencePercent) {
 					});
 				} else {
 					if (range < minRange) {
-						updateFeedback(
-							"Angle not deep enough for rep.",
-							"warning"
-						);
+						if (range >= nearRange) {
+							updateFeedback(
+								"Almost there—go a little deeper for a full rep.",
+								"warning"
+							);
+						} else {
+							updateFeedback(
+								"Angle not deep enough for rep.",
+								"warning"
+							);
+						}
 					} else if (cycleDuration < minDuration) {
-						updateFeedback(
-							"Movement too fast to count. Slow down slightly.",
-							"warning"
-						);
+						if (cycleDuration >= nearDuration) {
+							updateFeedback(
+								"Good speed—slow just a touch for a counted rep.",
+								"warning"
+							);
+						} else {
+							updateFeedback(
+								"Movement too fast to count. Slow down slightly.",
+								"warning"
+							);
+						}
 					} else if (cycleDuration > maxDuration) {
 						updateFeedback(
 							"Rep timed out — reset and try again.",
