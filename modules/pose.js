@@ -464,43 +464,56 @@ function countReps(angle, exercise, landmarks, confidencePercent) {
 				const range =
 					(tracker.currentPeak ?? angle) -
 					(tracker.currentValley ?? angle);
-				const nearRange = minRange * 0.8;
-				const nearDuration = minDuration * 0.8;
+				const softRange = minRange * 0.85;
+				const softDuration = minDuration * 0.7;
+
 				if (
 					cycleDuration >= minDuration &&
 					cycleDuration <= maxDuration &&
 					range >= minRange
 				) {
+					// Solid rep: full credit, simple praise.
 					state.repCount++;
 					elements.repCount.textContent = state.repCount;
 					updateFeedback("Rep completed.", "good", {
 						force: true,
 					});
-				} else {
+				} else if (
+					cycleDuration >= softDuration &&
+					cycleDuration <= maxDuration &&
+					range >= softRange
+				) {
+					// Near-miss but still good enough to count.
+					state.repCount++;
+					elements.repCount.textContent = state.repCount;
 					if (range < minRange) {
-						if (range >= nearRange) {
-							updateFeedback(
-								"Almost there—go a little deeper for a full rep.",
-								"warning"
-							);
-						} else {
-							updateFeedback(
-								"Angle not deep enough for rep.",
-								"warning"
-							);
-						}
+						updateFeedback(
+							"Rep counted—aim for a little more depth.",
+							"warning"
+						);
 					} else if (cycleDuration < minDuration) {
-						if (cycleDuration >= nearDuration) {
-							updateFeedback(
-								"Good speed—slow just a touch for a counted rep.",
-								"warning"
-							);
-						} else {
-							updateFeedback(
-								"Movement too fast to count. Slow down slightly.",
-								"warning"
-							);
-						}
+						updateFeedback(
+							"Rep counted—slow just a touch for cleaner form.",
+							"warning"
+						);
+					} else {
+						updateFeedback(
+							"Rep counted—small tweaks will make it even better.",
+							"warning"
+						);
+					}
+				} else {
+					// Outside even the softer band: keep as firm guidance.
+					if (range < minRange) {
+						updateFeedback(
+							"Angle not deep enough for rep.",
+							"warning"
+						);
+					} else if (cycleDuration < minDuration) {
+						updateFeedback(
+							"Movement too fast to count. Slow down slightly.",
+							"warning"
+						);
 					} else if (cycleDuration > maxDuration) {
 						updateFeedback(
 							"Rep timed out — reset and try again.",

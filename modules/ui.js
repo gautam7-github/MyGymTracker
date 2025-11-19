@@ -41,6 +41,7 @@ export const elements = {
 	confidenceLower: document.getElementById("confidence-lower"),
 	confidenceRing: document.getElementById("confidence-ring"),
 	motionAlert: document.getElementById("motion-alert"),
+	feedbackOverlay: document.getElementById("feedback-overlay"),
 	formFeedback: document.getElementById("form-feedback"),
 	instructions: document.getElementById("instructions"),
 	sessionSummary: document.getElementById("sessionSummary"),
@@ -189,6 +190,8 @@ export function displayFeedbackMessages(messages, options = {}) {
 		)
 		.join("");
 
+	renderFeedbackOverlay(state.feedbackMessages);
+
 	if (
 		state.feedbackMessages.length === 1 &&
 		state.feedbackMessages[0].type === "good"
@@ -197,8 +200,22 @@ export function displayFeedbackMessages(messages, options = {}) {
 			state.feedbackMessages = [];
 			renderFeedbackPlaceholder();
 			state.feedbackClearTimeout = null;
+			renderFeedbackOverlay([]);
 		}, 3000);
 	}
+}
+
+function renderFeedbackOverlay(list) {
+	const el = elements.feedbackOverlay;
+	if (!el) return;
+	if (!list || list.length === 0) {
+		el.textContent = "";
+		el.className = "feedback-overlay";
+		return;
+	}
+	const latest = list[list.length - 1];
+	el.textContent = latest.text;
+	el.className = `feedback-overlay visible ${latest.type || "info"}`;
 }
 
 export function updateFeedback(text, type = "good", options = {}) {
